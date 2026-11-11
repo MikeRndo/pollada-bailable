@@ -1,4 +1,4 @@
-import { EVENTO, fmtNum, qrPayload, soloDigitos } from './evento';
+import { fmtNum, soloDigitos } from './evento';
 import type { Ticket } from './types';
 
 /** 987654321 → 51987654321 (Perú). Si ya trae código de país lo respeta. */
@@ -13,52 +13,26 @@ export function waLink(tel: string, texto: string) {
   return `https://wa.me/${d}?text=${encodeURIComponent(texto)}`;
 }
 
-export function mensajeTicket(t: Ticket) {
-  const nombre = t.comprador.split(' ')[0] || t.comprador;
-  const pago =
-    t.estadoPago === 'Pagado'
-      ? `✅ Pagado con ${t.metodoPago}`
-      : `⏳ PENDIENTE DE PAGO (${t.metodoPago}) – S/ ${EVENTO.precio}`;
+/** Primer nombre con mayúscula inicial: "maría torres" → "María" */
+function primerNombre(nombre: string) {
+  const n = nombre.trim().split(/\s+/)[0] ?? '';
+  return n ? n[0].toLocaleUpperCase('es-PE') + n.slice(1).toLocaleLowerCase('es-PE') : '';
+}
+
+/** Mensaje de WhatsApp para uno o varios tickets de una misma compra */
+export function mensajeCompra(ts: Ticket[]) {
+  const lista = [...ts].sort((a, b) => a.numeroTicket - b.numeroTicket);
+  const nums = lista.map((t) => fmtNum(t.numeroTicket)).join(', ');
+  const varios = lista.length > 1;
   return [
-    `🎟️ *GRAN POLLADA PRO SALUD*`,
-    `Hola ${nombre}, aquí está tu ticket:`,
+    `Buenos días ${primerNombre(lista[0].comprador)}, le envío ${varios ? 'sus tickets' : 'su ticket'} N° ${nums} 🎟️`,
+    `El pago será en mesa.`,
+    `Muestre ${varios ? 'los códigos QR' : 'el código QR'} al llegar para registrar ${varios ? 'sus tickets' : 'su ticket'}.`,
     ``,
-    `*TICKET N° ${fmtNum(t.numeroTicket)}*`,
-    `💰 S/ ${EVENTO.precio} · ${pago}`,
-    `📍 ${EVENTO.lugar} (${EVENTO.referencia.toLowerCase()})`,
-    `📅 ${EVENTO.fecha} · ⏰ ${EVENTO.hora}`,
-    `🎧 Artista invitado: ${EVENTO.artista}`,
-    `❤️ A beneficio de: ${EVENTO.beneficio}`,
-    ``,
-    `Muestra el código QR al llegar: te anotan en cocina y te llaman por tu nombre.`,
-    `Código: ${qrPayload(t)}`,
-    `¡No faltes! 🍗🎶`,
+    `🙏❤️ *Por la salud de Víctor Alejandro*`,
   ].join('\n');
 }
 
-/** Mensaje para una compra de varios tickets */
-export function mensajeCompra(ts: Ticket[]) {
-  if (ts.length === 1) return mensajeTicket(ts[0]);
-  const t = ts[0];
-  const nombre = t.comprador.split(' ')[0] || t.comprador;
-  const pendientes = ts.filter((x) => x.estadoPago === 'Pendiente').length;
-  const pago =
-    pendientes === 0
-      ? `✅ Pagado con ${t.metodoPago}`
-      : `⏳ PENDIENTE DE PAGO: S/ ${pendientes * EVENTO.precio} (${t.metodoPago})`;
-  return [
-    `🎟️ *GRAN POLLADA PRO SALUD*`,
-    `Hola ${nombre}, aquí están tus ${ts.length} tickets:`,
-    ``,
-    ...ts.map((x) => `*TICKET N° ${fmtNum(x.numeroTicket)}* · ${qrPayload(x)}`),
-    ``,
-    `💰 Total S/ ${ts.length * EVENTO.precio} · ${pago}`,
-    `📍 ${EVENTO.lugar} (${EVENTO.referencia.toLowerCase()})`,
-    `📅 ${EVENTO.fecha} · ⏰ ${EVENTO.hora}`,
-    `🎧 Artista invitado: ${EVENTO.artista}`,
-    `❤️ A beneficio de: ${EVENTO.beneficio}`,
-    ``,
-    `Cada imagen tiene su propio QR (uno por pollada). Muéstralos al llegar.`,
-    `¡No faltes! 🍗🎶`,
-  ].join('\n');
+export function mensajeTicket(t: Ticket) {
+  return mensajeCompra([t]);
 }

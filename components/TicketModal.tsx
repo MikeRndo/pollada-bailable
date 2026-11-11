@@ -83,28 +83,38 @@ export default function TicketModal({
     el.scrollTo({ left: destino * el.clientWidth, behavior: 'smooth' });
   }
 
-  async function compartir() {
-    setAviso(null);
-    if (pngs && pngs.length) {
-      const archivos = pngs.map((b, i) => new File([b], nombres[i], { type: 'image/png' }));
-      if (navigator.canShare?.({ files: archivos })) {
-        try {
-          await navigator.share({ files: archivos, text: texto, title: 'Tickets Gran Pollada Pro Salud' });
-          return;
-        } catch (e) {
-          if ((e as DOMException)?.name === 'AbortError') return;
-        }
-      }
-      // Sin Web Share (PC / navegador antiguo): descarga las imágenes y abre el chat
-      pngs.forEach((b, i) => setTimeout(() => descargarBlob(b, nombres[i]), i * 350));
-      setAviso(
-        varios
-          ? `Se descargaron ${pngs.length} imágenes: adjúntalas en el chat de WhatsApp que se abrió.`
-          : 'Se descargó la imagen del ticket: adjúntala en el chat de WhatsApp que se abrió.',
-      );
-    }
-    window.open(waLink(t0.telefono, texto), '_blank', 'noopener');
+  /** Abre el chat del número registrado (así aparece primero al compartir) */
+  function abrirChat() {
+    window.open(waLink(t0.telefono, ''), '_blank', 'noopener');
   }
+
+  /** Envía la(s) imagen(es) del ticket con QR + el mensaje, juntos, por WhatsApp */
+  async function enviarTicket() {
+    setAviso(null);
+    if (!pngs || !pngs.length) return;
+    const archivos = pngs.map((b, i) => new File([b], nombres[i], { type: 'image/png' }));
+    if (navigator.canShare?.({ files: archivos, text: texto })) {
+      try {
+        // Igual que la versión que salía agrupada: imágenes + texto (como pie de foto) + título
+        await navigator.share({ files: archivos, text: texto, title: 'Tickets Gran Pollada Pro Salud' });
+        return;
+      } catch (e) {
+        if ((e as DOMException)?.name === 'AbortError') return;
+      }
+    }
+    // PC o navegador sin compartir archivos: descarga las imágenes y abre el chat con el mensaje
+    pngs.forEach((b, i) => setTimeout(() => descargarBlob(b, nombres[i]), i * 350));
+    window.open(waLink(t0.telefono, texto), '_blank', 'noopener');
+    setAviso(
+      varios
+        ? `Se descargaron ${pngs.length} imágenes y se abrió el chat: adjúntalas antes de enviar.`
+        : 'Se descargó la imagen y se abrió el chat: adjúntala antes de enviar.',
+    );
+  }
+
+
+
+
 
   const pendientes = lista.filter((t) => t.estadoPago === 'Pendiente').length;
 
@@ -186,42 +196,35 @@ export default function TicketModal({
           )}
         </div>
 
-        <Boton variante="verde" onClick={compartir} disabled={!pngs} className="w-full text-base">
+        <Boton variante="verde" onClick={enviarTicket} disabled={!pngs} className="w-full text-base">
           <Share2 className="h-5 w-5" aria-hidden />
-          {!pngs
-            ? 'Preparando imágenes…'
-            : varios
-              ? `Enviar ${lista.length} Tickets por WhatsApp`
-              : 'Enviar Ticket por WhatsApp'}
+          {!pngs ? 'Preparando ticket…' : varios ? `Enviar ${lista.length} tickets por WhatsApp` : 'Enviar ticket por WhatsApp'}
         </Boton>
-        <p className="-mt-2 text-xs text-white/50">
-          Se abre el menú de compartir: elige WhatsApp y el contacto. {varios ? 'Van todas las imágenes' : 'Va la imagen'} con QR + el
-          detalle.
+        <p className="-mt-2 text-xs text-white/55">
+          Va {varios ? 'cada ticket con su QR' : 'la imagen del ticket con su QR'} + el mensaje. Elige <b>WhatsApp</b> y el
+          chat de <b>{t0.comprador.split(' ')[0]}</b> ({t0.telefono}).
         </p>
+        <button
+          type="button"
+          onClick={abrirChat}
+          className="-mt-1 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 text-sm font-semibold text-emerald-200 active:bg-emerald-500/10"
+        >
+          <MessageCircle className="h-4 w-4" aria-hidden />
+          ¿No aparece el contacto? Abrir chat de {t0.telefono}
+        </button>
         {aviso && <p className="rounded-lg bg-amber-500/15 p-2 text-sm text-amber-200">{aviso}</p>}
 
-        <div className="grid grid-cols-3 gap-2">
-          <Boton variante="suave" onClick={() => window.open(waLink(t0.telefono, texto), '_blank', 'noopener')}>
-            <MessageCircle className="h-5 w-5" aria-hidden />
-            <span className="sr-only">Mensaje directo por WhatsApp</span>
-          </Boton>
+        <div className="grid grid-cols-2 gap-2">
           <Boton
             variante="suave"
             disabled={!pngs}
             onClick={() => pngs?.forEach((b, i) => setTimeout(() => descargarBlob(b, nombres[i]), i * 350))}
           >
-            <Download className="h-5 w-5" aria-hidden />
-            <span className="sr-only">Descargar imágenes</span>
+            <Download className="h-5 w-5" aria-hidden /> Descargar PNG
           </Boton>
           <Boton variante="suave" onClick={() => window.print()}>
-            <Printer className="h-5 w-5" aria-hidden />
-            <span className="sr-only">Imprimir</span>
+            <Printer className="h-5 w-5" aria-hidden /> Imprimir
           </Boton>
-        </div>
-        <div className="-mt-2 grid grid-cols-3 text-center text-[11px] text-white/50">
-          <span>Solo texto</span>
-          <span>Descargar PNG</span>
-          <span>Imprimir</span>
         </div>
       </div>
 

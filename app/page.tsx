@@ -8,11 +8,19 @@ import ScannerView from '@/components/ScannerView';
 import TablaView from '@/components/TablaView';
 import CocinaView from '@/components/CocinaView';
 import DashboardView from '@/components/DashboardView';
-import { useTickets } from '@/lib/store';
+import { TicketsProvider, useTickets } from '@/lib/store';
 
 const TABS: Tab[] = ['vender', 'escaner', 'cocina', 'tabla', 'dashboard'];
 
 export default function Home() {
+  return (
+    <TicketsProvider>
+      <Panel />
+    </TicketsProvider>
+  );
+}
+
+function Panel() {
   const [tab, setTab] = useState<Tab>('vender');
   const { modo, tickets, capacidad } = useTickets();
   const enCola = tickets.filter((t) => t.estadoEntrega === 'PorRecoger').length;

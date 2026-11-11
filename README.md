@@ -51,7 +51,7 @@ dibujan el QR y el N° correlativo, dentro del recuadro blanco "QR TM" (medido a
 vende y escanea. Si caja y cocina usan celulares distintos, activa Supabase:
 
 1. Crea un proyecto en supabase.com → SQL Editor → pega y ejecuta `supabase/schema.sql`.
-2. Copia `.env.example` a `.env.local` y llena `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+2. Copia `.env.example` a `.env.local` y llena `NEXT_PUBLIC_SUPABASE_URL` y `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` (o la antigua `NEXT_PUBLIC_SUPABASE_ANON_KEY`)
    (Project Settings → API). En Vercel ponlas en Environment Variables.
 3. Reinicia. El icono de nube verde en la cabecera indica que está sincronizado en tiempo real.
 
@@ -72,3 +72,4 @@ lib/            store (estado + LocalStorage/Supabase), evento (datos del afiche
 supabase/       schema.sql
 public/         sw.js (offline), icon.svg
 ```
+

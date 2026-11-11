@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { Anton, Luckiest_Guy, Outfit, Pacifico } from 'next/font/google';
 import './globals.css';
-import { TicketsProvider } from '@/lib/store';
 import RegistrarSW from '@/components/RegistrarSW';
 
 const ui = Outfit({ subsets: ['latin'], variable: '--font-ui', display: 'swap' });
@@ -16,6 +15,7 @@ export const metadata: Metadata = {
   icons: { icon: '/icon.svg', apple: '/icon.svg' },
   appleWebApp: { capable: true, title: 'Pollada', statusBarStyle: 'black-translucent' },
   formatDetection: { telephone: false },
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = {
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" className={`${ui.variable} ${luckiest.variable} ${pacifico.variable} ${anton.variable}`}>
       <body className="min-h-dvh font-sans text-white antialiased">
-        <TicketsProvider>{children}</TicketsProvider>
+        {children}
         <RegistrarSW />
       </body>
     </html>
