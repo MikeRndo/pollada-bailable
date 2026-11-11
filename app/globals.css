@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: #07051a;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+body {
+  background-image: radial-gradient(ellipse at 50% -10%, rgba(124, 58, 237, 0.28), transparent 55%),
+    radial-gradient(ellipse at 100% 100%, rgba(225, 29, 46, 0.12), transparent 45%);
+  background-attachment: fixed;
+}
+
+:focus-visible {
+  outline: 3px solid #ffd60a;
+  outline-offset: 2px;
+}
+
+/* Borde dentado tipo estampilla en los laterales del ticket */
+.ticket-perf {
+  --r: 0.85cqw;
+  --p: 2.6cqw;
+  -webkit-mask:
+    radial-gradient(circle var(--r) at 0 50%, #0000 97%, #000) left / 51% var(--p) repeat-y,
+    radial-gradient(circle var(--r) at 100% 50%, #0000 97%, #000) right / 51% var(--p) repeat-y;
+  mask:
+    radial-gradient(circle var(--r) at 0 50%, #0000 97%, #000) left / 51% var(--p) repeat-y,
+    radial-gradient(circle var(--r) at 100% 50%, #0000 97%, #000) right / 51% var(--p) repeat-y;
+}
+
+/* Listones con borde de pincel */
+.brush-amarillo {
+  background: linear-gradient(90deg, #ffe14d, #ffd60a 60%, #f5c400);
+  clip-path: polygon(1% 18%, 6% 2%, 40% 9%, 70% 0, 99% 10%, 97% 50%, 100% 88%, 70% 100%, 35% 92%, 4% 100%, 0 60%);
+}
+.brush-rojo {
+  background: linear-gradient(90deg, #a5121c, #ef233c 50%, #a5121c);
+  clip-path: polygon(0 12%, 8% 0, 50% 6%, 92% 0, 100% 15%, 98% 55%, 100% 92%, 88% 100%, 50% 94%, 8% 100%, 1% 85%, 2% 45%);
+}
+
+/* Video del lector QR */
+#lector-qr video {
+  object-fit: cover !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+#lector-qr {
+  border: 0 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Impresión: solo el ticket */
+@page {
+  size: A4 landscape;
+  margin: 10mm;
+}
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  body > *:not(#zona-impresion) {
+    display: none !important;
+  }
+  #zona-impresion {
+    display: block !important;
+    width: 100%;
+  }
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
