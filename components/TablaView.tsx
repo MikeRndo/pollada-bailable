@@ -156,6 +156,37 @@ export default function TablaView() {
         </button>
       </div>
 
+      {/* Resumen de entregas: toca una tarjeta para filtrar */}
+      <div className="grid grid-cols-3 gap-2">
+        {(
+          [
+            ['recibidos', 'Recibidos', 'text-sky-300', 'ring-sky-400/40 bg-sky-500/10'],
+            ['en-cocina', 'En cocina', 'text-orange-300', 'ring-orange-400/40 bg-orange-500/10'],
+            ['sin-escanear', 'Sin escanear', 'text-white/80', 'ring-white/20 bg-white/[.05]'],
+          ] as const
+        ).map(([id, label, txt, caja]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setFiltro(filtro === id ? 'todos' : id)}
+            aria-pressed={filtro === id}
+            className={`rounded-2xl p-2.5 text-left ring-1 transition ${caja} ${filtro === id ? 'ring-2 ring-oro' : ''}`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/55">{label}</p>
+            <p className={`font-display text-2xl leading-none ${txt}`}>{conteo[id]}</p>
+            <p className="text-[11px] tabular-nums text-white/45">de {tickets.length}</p>
+          </button>
+        ))}
+      </div>
+      {tickets.length > 0 && (
+        <div className="h-2 overflow-hidden rounded-full bg-white/10" aria-hidden>
+          <div
+            className="h-full rounded-full bg-sky-400 transition-[width] duration-500"
+            style={{ width: `${(conteo.recibidos / tickets.length) * 100}%` }}
+          />
+        </div>
+      )}
+
       {/* Buscador y filtros fijos arriba mientras bajas */}
       <div
         style={{ top: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}
@@ -174,7 +205,7 @@ export default function TablaView() {
             enterKeyHint="search"
           />
         </div>
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]" role="tablist" aria-label="Filtros">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtros">
           {FILTROS.map((f) => (
             <button
               key={f.id}
@@ -182,7 +213,7 @@ export default function TablaView() {
               role="tab"
               aria-selected={filtro === f.id}
               onClick={() => setFiltro(f.id)}
-              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-bold ${
+              className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3 text-sm font-bold ${
                 filtro === f.id ? 'bg-oro text-noche-950' : 'bg-white/[.07] text-white/75'
               }`}
             >

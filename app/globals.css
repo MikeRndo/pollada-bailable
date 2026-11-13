@@ -8,13 +8,13 @@
 
 html,
 body {
-  background: #07051a;
+  background: #04070d;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
 }
 
 body {
-  background-image: radial-gradient(ellipse at 50% -10%, rgba(124, 58, 237, 0.28), transparent 55%),
+  background-image: radial-gradient(ellipse at 50% -10%, rgba(30, 64, 175, 0.30), transparent 55%),
     radial-gradient(ellipse at 100% 100%, rgba(225, 29, 46, 0.12), transparent 45%);
   background-attachment: fixed;
 }

@@ -1,5 +1,5 @@
 // Service worker mínimo: la app sigue abriendo aunque se caiga la señal en el local.
-const CACHE = 'pollada-v1';
+const CACHE = 'pollada-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {

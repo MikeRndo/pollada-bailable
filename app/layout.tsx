@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: 'Pollada Pro Salud · Caja y Cocina',
   description: 'Venta de tickets, escáner QR de cocina y caja de la Gran Pollada Pro Salud.',
   applicationName: 'Pollada Pro Salud',
-  icons: { icon: '/icon.svg', apple: '/icon.svg' },
+  icons: { icon: '/icon.svg', apple: '/icon-180.png' },
   appleWebApp: { capable: true, title: 'Pollada', statusBarStyle: 'black-translucent' },
   formatDetection: { telephone: false },
   robots: { index: false, follow: false },
@@ -22,7 +22,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#0e0a26',
+  themeColor: '#04070d',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

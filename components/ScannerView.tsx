@@ -449,7 +449,7 @@ function Pantallazo({
               type="button"
               disabled={procesando}
               onClick={() => onCobrar(v.ticket, 'Yape')}
-              className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-[#7b2cbf] text-base font-bold text-white disabled:opacity-50"
+              className="flex min-h-14 items-center justify-center gap-2 rounded-xl bg-sky-600 text-base font-bold text-white disabled:opacity-50"
             >
               <Smartphone className="h-5 w-5" aria-hidden /> Cobré con Yape · A cocina
             </button>

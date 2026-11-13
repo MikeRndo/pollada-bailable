@@ -165,7 +165,7 @@ export default function DashboardView() {
             titulo="Yape / Plin"
             valor={soles(s.yape * PRECIO)}
             sub={`${s.yape} tickets`}
-            tono="bg-[#7b2cbf]/30 text-purple-200"
+            tono="bg-sky-500/20 text-sky-200"
           />
           <Cifra
             Icon={Banknote}

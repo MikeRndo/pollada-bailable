@@ -380,7 +380,7 @@ export default function VenderView() {
             value={metodo}
             onChange={setMetodo}
             opciones={[
-              { value: 'Yape', label: 'Yape / Plin', Icon: Smartphone, activo: 'border-[#7b2cbf] bg-[#7b2cbf] text-white' },
+              { value: 'Yape', label: 'Yape / Plin', Icon: Smartphone, activo: 'border-sky-500 bg-sky-600 text-white' },
               {
                 value: 'Efectivo',
                 label: 'Efectivo',
