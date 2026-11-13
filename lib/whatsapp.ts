@@ -1,4 +1,4 @@
-import { fmtNum, soloDigitos } from './evento';
+import { PAGO_DIGITAL, fmtNum, soloDigitos } from './evento';
 import type { Ticket } from './types';
 
 /** 987654321 → 51987654321 (Perú). Si ya trae código de país lo respeta. */
@@ -25,8 +25,8 @@ export function mensajeCompra(ts: Ticket[]) {
   const nums = lista.map((t) => fmtNum(t.numeroTicket)).join(', ');
   const varios = lista.length > 1;
   return [
-    `Buenos días ${primerNombre(lista[0].comprador)}, le envío ${varios ? 'sus tickets' : 'su ticket'} N° ${nums} 🎟️`,
-    `El pago será en mesa.`,
+    `Hola ${primerNombre(lista[0].comprador)}, le envío ${varios ? 'sus tickets' : 'su ticket'} N° ${nums} 🎟️`,
+    `El pago puede hacerlo por Yape/Plin al ${PAGO_DIGITAL.numero} (a nombre de ${PAGO_DIGITAL.titular}) o el mismo día en mesa.`,
     `Muestre ${varios ? 'los códigos QR' : 'el código QR'} al llegar para registrar ${varios ? 'sus tickets' : 'su ticket'}.`,
     ``,
     `🙏❤️ *Por la salud de Víctor Alejandro*`,

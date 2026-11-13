@@ -1,6 +1,12 @@
 import type { Ticket } from './types';
 
 /** Datos fijos del afiche */
+/** Cuenta para pagos por Yape / Plin */
+export const PAGO_DIGITAL = {
+  numero: '963 985 857',
+  titular: 'Yanina Alejandra Rurush Mallqui',
+} as const;
+
 export const EVENTO = {
   titulo: 'Gran Pollada Pro Salud',
   artista: 'DJ Julio',
@@ -15,9 +21,9 @@ export const EVENTO = {
 export const PRECIO = EVENTO.precio;
 /** Cantidad de tickets del lote inicial */
 export const STOCK_INICIAL = 500;
-/** Primer número de ticket: la numeración empieza en N° 500 y sube (500, 501, 502…) */
-export const NUMERO_INICIAL = 500;
-/** Último número disponible según la cantidad de cupos (500 cupos → N° 500 al 999) */
+/** Primer número de ticket: la numeración empieza en N° 501 y sube (501, 502, 503…) */
+export const NUMERO_INICIAL = 501;
+/** Último número disponible según la cantidad de cupos (500 cupos → N° 501 al 1000) */
 export const ultimoNumero = (capacidad: number) => NUMERO_INICIAL + capacidad - 1;
 export const enStock = (n: number, capacidad: number) => n >= NUMERO_INICIAL && n <= ultimoNumero(capacidad);
 

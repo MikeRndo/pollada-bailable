@@ -39,6 +39,8 @@ export interface NuevaCompra {
   telefono: string;
   metodoPago: MetodoPago;
   estadoPago: EstadoPago;
+  /** Pago parcial: cuántos de los tickets se pagan ahora (el resto queda pendiente) */
+  pagados?: number;
   /** Cantidad de tickets con numeración automática (siguientes libres) */
   cantidad?: number;
   /** Números físicos ingresados a mano (si viene, ignora "cantidad") */
@@ -245,7 +247,9 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         numeros.sort((x, y) => x - y);
         const ahora = new Date().toISOString();
         const compraId = numeros.length > 1 ? nuevoId() : null;
-        const nuevos: Ticket[] = numeros.map((numero) => ({
+        // Cuántos tickets quedan pagados ahora (pago parcial: los primeros N)
+        const nPagados = Math.max(0, Math.min(numeros.length, c.pagados ?? (c.estadoPago === 'Pagado' ? numeros.length : 0)));
+        const nuevos: Ticket[] = numeros.map((numero, i) => ({
           id: nuevoId(),
           numeroTicket: numero,
           compraId,
@@ -254,10 +258,10 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           vendedor: c.vendedor.trim().replace(/\s+/g, ' '),
           telefono: c.telefono.trim(),
           metodoPago: c.metodoPago,
-          estadoPago: c.estadoPago,
+          estadoPago: i < nPagados ? 'Pagado' : 'Pendiente',
           estadoEntrega: 'Pendiente',
           fechaRegistro: ahora,
-          fechaPago: c.estadoPago === 'Pagado' ? ahora : null,
+          fechaPago: i < nPagados ? ahora : null,
           fechaEscaneo: null,
           fechaEntrega: null,
         }));

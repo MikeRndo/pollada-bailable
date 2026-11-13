@@ -11,6 +11,7 @@ import {
   ListOrdered,
   Minus,
   Phone,
+  PieChart,
   Plus,
   Smartphone,
   TriangleAlert,
@@ -49,7 +50,8 @@ export default function VenderView() {
   const [modoNum, setModoNum] = useState<'auto' | 'manual'>('auto');
   const [manual, setManual] = useState('');
   const [metodo, setMetodo] = useState<MetodoPago>('Yape');
-  const [pago, setPago] = useState<EstadoPago>('Pagado');
+  const [pago, setPago] = useState<EstadoPago | 'Parcial'>('Pagado');
+  const [pagaAhora, setPagaAhora] = useState(1);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creados, setCreados] = useState<string[] | null>(null);
@@ -105,6 +107,12 @@ export default function VenderView() {
         ? `Registrar y Generar Ticket N° ${fmtNum(numeros[0])}`
         : `Registrar y Generar ${numeros.length} Tickets (N° ${rangos(numeros)})`;
 
+  // Pago parcial: "pago 2 de 3"
+  const parcialPosible = cant > 1;
+  const modoPago = pago === 'Parcial' && !parcialPosible ? 'Pagado' : pago;
+  const pagaAhoraOk = Math.max(1, Math.min(pagaAhora, Math.max(1, cant - 1)));
+  const nPagadosAhora = modoPago === 'Pagado' ? cant : modoPago === 'Parcial' ? pagaAhoraOk : 0;
+
   async function enviar(e: FormEvent) {
     e.preventDefault();
     desbloquearAudio();
@@ -116,7 +124,8 @@ export default function VenderView() {
       vendedor,
       telefono,
       metodoPago: metodo,
-      estadoPago: pago,
+      estadoPago: modoPago === 'Pendiente' ? 'Pendiente' : 'Pagado',
+      pagados: modoPago === 'Parcial' ? pagaAhoraOk : undefined,
       ...(modoNum === 'manual' ? { numeros } : { cantidad }),
     });
     setEnviando(false);
@@ -133,6 +142,7 @@ export default function VenderView() {
       setManual('');
       setCantidad(1);
       setPago('Pagado');
+      setPagaAhora(1);
     } else {
       sonidoError();
       setError(r.error);
@@ -370,7 +380,7 @@ export default function VenderView() {
             value={metodo}
             onChange={setMetodo}
             opciones={[
-              { value: 'Yape', label: 'Yape', Icon: Smartphone, activo: 'border-[#7b2cbf] bg-[#7b2cbf] text-white' },
+              { value: 'Yape', label: 'Yape / Plin', Icon: Smartphone, activo: 'border-[#7b2cbf] bg-[#7b2cbf] text-white' },
               {
                 value: 'Efectivo',
                 label: 'Efectivo',
@@ -381,28 +391,76 @@ export default function VenderView() {
           />
           <Segmentado
             label="Estado del pago"
-            value={pago}
+            value={modoPago}
             onChange={setPago}
             opciones={[
               {
                 value: 'Pagado',
-                label: 'Pagado',
+                label: parcialPosible ? 'Todo' : 'Pagado',
                 Icon: CircleCheck,
                 activo: 'border-emerald-500 bg-emerald-500/20 text-emerald-200',
               },
+              ...(parcialPosible
+                ? [
+                    {
+                      value: 'Parcial' as const,
+                      label: 'Parcial',
+                      Icon: PieChart,
+                      activo: 'border-sky-400 bg-sky-500/20 text-sky-200',
+                    },
+                  ]
+                : []),
               {
                 value: 'Pendiente',
-                label: 'Pendiente de pago',
+                label: parcialPosible ? 'Nada' : 'Pendiente de pago',
                 Icon: Clock3,
                 activo: 'border-amber-400 bg-amber-500/20 text-amber-200',
               },
             ]}
           />
-          <div className="flex items-center justify-between rounded-xl bg-white/[.05] px-4 py-3">
-            <span className="text-sm text-white/70">
-              Total {cant > 1 ? `(${cant} × S/ ${PRECIO})` : ''}
-            </span>
-            <span className="text-xl font-extrabold tabular-nums">S/ {Math.max(cant, 0) * PRECIO}</span>
+
+          {modoPago === 'Parcial' && (
+            <div className="rounded-xl bg-sky-500/10 p-3 ring-1 ring-sky-400/30">
+              <p className="mb-2 text-sm font-semibold text-sky-100">¿Cuántos tickets paga ahora?</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Uno menos"
+                  onClick={() => setPagaAhora(Math.max(1, pagaAhoraOk - 1))}
+                  disabled={pagaAhoraOk <= 1}
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/10 disabled:opacity-30"
+                >
+                  <Minus className="h-5 w-5" aria-hidden />
+                </button>
+                <output className="grid h-12 flex-1 place-items-center rounded-xl bg-sky-400/15 text-lg font-extrabold text-sky-100">
+                  {pagaAhoraOk} de {cant}
+                </output>
+                <button
+                  type="button"
+                  aria-label="Uno más"
+                  onClick={() => setPagaAhora(Math.min(cant - 1, pagaAhoraOk + 1))}
+                  disabled={pagaAhoraOk >= cant - 1}
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/10 disabled:opacity-30"
+                >
+                  <Plus className="h-5 w-5" aria-hidden />
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1 rounded-xl bg-white/[.05] px-4 py-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-white/70">Total {cant > 1 ? `(${cant} × S/ ${PRECIO})` : ''}</span>
+              <span className="text-xl font-extrabold tabular-nums">S/ {Math.max(cant, 0) * PRECIO}</span>
+            </div>
+            {cant > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-emerald-300">Paga ahora: S/ {nPagadosAhora * PRECIO}</span>
+                <span className={cant - nPagadosAhora > 0 ? 'font-semibold text-amber-300' : 'text-white/45'}>
+                  Falta: S/ {(cant - nPagadosAhora) * PRECIO}
+                </span>
+              </div>
+            )}
           </div>
         </Tarjeta>
 

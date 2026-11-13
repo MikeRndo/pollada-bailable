@@ -162,7 +162,7 @@ export default function DashboardView() {
         <div className="grid grid-cols-2 gap-2">
           <Cifra
             Icon={Smartphone}
-            titulo="Yape"
+            titulo="Yape / Plin"
             valor={soles(s.yape * PRECIO)}
             sub={`${s.yape} tickets`}
             tono="bg-[#7b2cbf]/30 text-purple-200"

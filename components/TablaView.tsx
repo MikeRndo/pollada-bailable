@@ -67,6 +67,8 @@ export default function TablaView() {
   const [sel, setSel] = useState<string | null>(null);
   const [ver, setVer] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cobrarN, setCobrarN] = useState(1);
+  const [cobrando, setCobrando] = useState(false);
 
   // Al cambiar búsqueda o filtro vuelve a la primera página
   useEffect(() => setLimite(POR_PAGINA), [q, filtro, orden]);
@@ -123,10 +125,15 @@ export default function TablaView() {
     return r.ok;
   }
 
-  async function cobrarTodo(grupo: Grupo, m: Ticket['metodoPago']) {
-    for (const t of grupo.tickets.filter((x) => x.estadoPago === 'Pendiente')) {
-      if (!(await accion(marcarPagado(t.id, m)))) return;
+  /** Registra el pago de N tickets pendientes de la compra (pago parcial o total) */
+  async function cobrar(grupo: Grupo, cuantos: number, m: Ticket['metodoPago']) {
+    const pendientes = grupo.tickets.filter((x) => x.estadoPago === 'Pendiente').slice(0, cuantos);
+    setCobrando(true);
+    for (const t of pendientes) {
+      if (!(await accion(marcarPagado(t.id, m)))) break;
     }
+    setCobrando(false);
+    setCobrarN(1);
   }
 
   return (
@@ -206,6 +213,7 @@ export default function TablaView() {
                     type="button"
                     onClick={() => {
                       setError(null);
+                      setCobrarN(1);
                       setSel(grp.clave);
                     }}
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-white/10"
@@ -242,7 +250,11 @@ export default function TablaView() {
                       <span className="text-sm font-bold tabular-nums">
                         {n > 1 ? `${n} × ` : ''}S/ {n * PRECIO}
                       </span>
-                      {pend > 0 ? (
+                      {pend > 0 && pend < n ? (
+                        <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-xs font-bold text-amber-300 ring-1 ring-amber-400/30">
+                          Falta S/ {pend * PRECIO}
+                        </span>
+                      ) : pend > 0 ? (
                         <PillPago estado="Pendiente" />
                       ) : entregados === n ? (
                         <PillEntrega estado="Entregado" />
@@ -284,25 +296,83 @@ export default function TablaView() {
             <dt className="text-white/50">Celular</dt>
             <dd>{g.telefono}</dd>
             <dt className="text-white/50">Total</dt>
-            <dd>
-              S/ {g.tickets.length * PRECIO} · {g.metodo}
-            </dd>
+            <dd>S/ {g.tickets.length * PRECIO}</dd>
             <dt className="text-white/50">Registrado</dt>
             <dd>{fechaHora(g.fecha)}</dd>
           </dl>
 
           {error && <p className="mb-3 rounded-lg bg-red-500/15 p-2 text-sm text-red-200">{error}</p>}
 
-          {g.tickets.some((t) => t.estadoPago === 'Pendiente') && (
-            <div className="mb-3 grid grid-cols-2 gap-2">
-              <Boton variante="borde" onClick={() => cobrarTodo(g, 'Yape')}>
-                <Smartphone className="h-5 w-5" aria-hidden /> Pagó Yape
-              </Boton>
-              <Boton variante="borde" onClick={() => cobrarTodo(g, 'Efectivo')}>
-                <Banknote className="h-5 w-5" aria-hidden /> Pagó efectivo
-              </Boton>
-            </div>
-          )}
+          {(() => {
+            const total = g.tickets.length;
+            const pend = g.tickets.filter((t) => t.estadoPago === 'Pendiente').length;
+            const pag = total - pend;
+            const n = Math.max(1, Math.min(cobrarN, pend));
+            return (
+              <div className="mb-3 space-y-3 rounded-2xl border border-white/10 bg-white/[.04] p-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-white/50">Total</p>
+                    <p className="font-extrabold tabular-nums">S/ {total * PRECIO}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-emerald-300/80">Pagado</p>
+                    <p className="font-extrabold tabular-nums text-emerald-300">S/ {pag * PRECIO}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] uppercase tracking-wide text-amber-300/80">Falta</p>
+                    <p className={`font-extrabold tabular-nums ${pend ? 'text-amber-300' : 'text-white/40'}`}>
+                      S/ {pend * PRECIO}
+                    </p>
+                  </div>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-white/10" aria-hidden>
+                  <div className="h-full rounded-full bg-emerald-400" style={{ width: `${(pag / total) * 100}%` }} />
+                </div>
+
+                {pend === 0 ? (
+                  <p className="text-center text-sm font-semibold text-emerald-300">✅ Todo pagado</p>
+                ) : (
+                  <>
+                    {pend > 1 && (
+                      <div className="flex items-center gap-2">
+                        <span className="flex-1 text-sm text-white/75">¿Cuántos paga ahora?</span>
+                        <button
+                          type="button"
+                          aria-label="Uno menos"
+                          onClick={() => setCobrarN(Math.max(1, n - 1))}
+                          disabled={n <= 1}
+                          className="grid h-10 w-10 place-items-center rounded-lg bg-white/10 text-lg font-bold disabled:opacity-30"
+                        >
+                          −
+                        </button>
+                        <output className="w-16 text-center font-extrabold tabular-nums">
+                          {n} de {pend}
+                        </output>
+                        <button
+                          type="button"
+                          aria-label="Uno más"
+                          onClick={() => setCobrarN(Math.min(pend, n + 1))}
+                          disabled={n >= pend}
+                          className="grid h-10 w-10 place-items-center rounded-lg bg-white/10 text-lg font-bold disabled:opacity-30"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Boton variante="borde" disabled={cobrando} onClick={() => cobrar(g, n, 'Yape')}>
+                        <Smartphone className="h-5 w-5" aria-hidden /> S/ {n * PRECIO} Yape/Plin
+                      </Boton>
+                      <Boton variante="borde" disabled={cobrando} onClick={() => cobrar(g, n, 'Efectivo')}>
+                        <Banknote className="h-5 w-5" aria-hidden /> S/ {n * PRECIO} Efectivo
+                      </Boton>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           <ul className="mb-3 divide-y divide-white/[.07] rounded-xl border border-white/10">
             {g.tickets.map((t) => (
