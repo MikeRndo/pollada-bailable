@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
+  BadgeCheck,
   Banknote,
   CircleCheck,
   CircleX,
@@ -16,16 +17,31 @@ import {
   User,
 } from 'lucide-react';
 import { MAX_POR_COMPRA, useTickets } from '@/lib/store';
-import { PRECIO, fmtNum, parseNumeros, rangos, soloDigitos } from '@/lib/evento';
+import { enStock, fmtNum, NUMERO_INICIAL, parseNumeros, PRECIO, rangos, soloDigitos, ultimoNumero } from '@/lib/evento';
 import { desbloquearAudio, sonidoError, sonidoVenta } from '@/lib/sonido';
 import type { EstadoPago, MetodoPago } from '@/lib/types';
 import { Boton, Segmentado, Tarjeta, inputCls } from './ui';
 import TicketModal from './TicketModal';
 
 const RAPIDOS = [1, 2, 3, 4, 5];
+const LS_VENDEDOR = 'pollada:vendedor';
 
 export default function VenderView() {
-  const { siguiente, disponibles, capacidad, porNumero, registrar, agregarCupos, listo, libres } = useTickets();
+  const { siguiente, disponibles, capacidad, porNumero, registrar, agregarCupos, listo, libres, tickets } = useTickets();
+
+  // Vendedor: se recuerda en este celular para no escribirlo en cada venta
+  const [vendedor, setVendedor] = useState('');
+  useEffect(() => {
+    try {
+      setVendedor(localStorage.getItem(LS_VENDEDOR) ?? '');
+    } catch {
+      /* almacenamiento bloqueado */
+    }
+  }, []);
+  const vendedores = useMemo(
+    () => [...new Set(tickets.map((t) => t.vendedor).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')),
+    [tickets],
+  );
 
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -53,9 +69,9 @@ export default function VenderView() {
       if (n < 1) {
         malos.add(n);
         avisos.push(`${n} no es válido`);
-      } else if (n > capacidad) {
+      } else if (!enStock(n, capacidad)) {
         malos.add(n);
-        avisos.push(`N° ${fmtNum(n)} fuera del stock`);
+        avisos.push(`N° ${fmtNum(n)} fuera del stock (${fmtNum(NUMERO_INICIAL)}–${fmtNum(ultimoNumero(capacidad))})`);
       } else {
         const v = porNumero.get(n);
         if (v) {
@@ -79,7 +95,8 @@ export default function VenderView() {
 
   const telOk = soloDigitos(telefono).length >= 9;
   const nombreOk = nombre.trim().length >= 2;
-  const puede = listo && nombreOk && telOk && numeros.length > 0 && !enviando;
+  const vendedorOk = vendedor.trim().length >= 2;
+  const puede = listo && vendedorOk && nombreOk && telOk && numeros.length > 0 && !enviando;
 
   const textoBoton =
     numeros.length === 0
@@ -96,6 +113,7 @@ export default function VenderView() {
     setError(null);
     const r = await registrar({
       comprador: nombre,
+      vendedor,
       telefono,
       metodoPago: metodo,
       estadoPago: pago,
@@ -104,6 +122,11 @@ export default function VenderView() {
     setEnviando(false);
     if (r.ok) {
       sonidoVenta();
+      try {
+        localStorage.setItem(LS_VENDEDOR, vendedor.trim());
+      } catch {
+        /* sin almacenamiento */
+      }
       setCreados(r.data.map((t) => t.id));
       setNombre('');
       setTelefono('');
@@ -157,6 +180,31 @@ export default function VenderView() {
       )}
 
       <form onSubmit={enviar} className="space-y-4" noValidate>
+        <Tarjeta className="!py-3">
+          <label htmlFor="vendedor" className="mb-2 flex items-center gap-2 text-sm font-semibold text-white/80">
+            <BadgeCheck className="h-4 w-4 text-oro" aria-hidden /> Vendedor
+          </label>
+          <input
+            id="vendedor"
+            list="lista-vendedores"
+            className={inputCls}
+            value={vendedor}
+            onChange={(e) => setVendedor(e.target.value)}
+            placeholder="¿Quién vende? Ej. Cristofer"
+            autoComplete="off"
+            autoCapitalize="words"
+            aria-describedby="vendedor-ayuda"
+          />
+          <datalist id="lista-vendedores">
+            {vendedores.map((v) => (
+              <option key={v} value={v} />
+            ))}
+          </datalist>
+          <p id="vendedor-ayuda" className={`mt-1.5 text-xs ${vendedorOk ? 'text-white/45' : 'text-amber-300'}`}>
+            {vendedorOk ? 'Se queda guardado en este celular para las siguientes ventas.' : 'Escribe el nombre de quien vende.'}
+          </p>
+        </Tarjeta>
+
         <Tarjeta className="space-y-4">
           <div>
             <label htmlFor="nombre" className="mb-2 flex items-center gap-2 text-sm font-semibold text-white/80">
@@ -279,7 +327,7 @@ export default function VenderView() {
                 className={`${inputCls} font-display text-xl tracking-wider`}
                 value={manual}
                 onChange={(e) => setManual(e.target.value.replace(/[^\d,\s\-–;]/g, ''))}
-                placeholder="45   ó   45, 46, 47   ó   45-47"
+                placeholder="545   ó   545, 546   ó   545-547"
                 inputMode="text"
                 autoComplete="off"
                 aria-describedby="manual-ayuda"
@@ -310,7 +358,7 @@ export default function VenderView() {
               >
                 {chequeoManual?.ok === true && <CircleCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />}
                 {chequeoManual?.ok === false && <CircleX className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />}
-                {chequeoManual?.texto ?? 'Uno o varios, separados por coma. Para seguidos usa guion: 45-47.'}
+                {chequeoManual?.texto ?? 'Uno o varios, separados por coma. Para seguidos usa guion: 545-547.'}
               </p>
             </div>
           )}

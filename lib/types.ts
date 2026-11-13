@@ -15,6 +15,8 @@ export interface Ticket {
   /** Firma aleatoria de 8 caracteres que va dentro del QR (anti-falsificación) */
   firma: string;
   comprador: string;
+  /** Quién hizo la venta (para llevar la cuenta por vendedor) */
+  vendedor: string;
   telefono: string;
   metodoPago: MetodoPago;
   estadoPago: EstadoPago;

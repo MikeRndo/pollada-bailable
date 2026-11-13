@@ -12,10 +12,11 @@ import {
   Plus,
   Smartphone,
   Upload,
+  Users,
   Wallet,
 } from 'lucide-react';
 import { useTickets } from '@/lib/store';
-import { PRECIO, fmtNum, soles } from '@/lib/evento';
+import { PRECIO, fmtNum, soles, ultimoNumero } from '@/lib/evento';
 import { exportarCSV, exportarJSON } from '@/lib/exportar';
 import { Boton, Tarjeta } from './ui';
 
@@ -87,10 +88,25 @@ export default function DashboardView() {
     };
   }, [tickets]);
 
+  // Cuenta por vendedor: tickets, cobrado y por cobrar
+  const porVendedor = useMemo(() => {
+    const m = new Map<string, { tickets: number; yape: number; efectivo: number; pendientes: number }>();
+    for (const t of tickets) {
+      const k = t.vendedor?.trim() || 'Sin vendedor';
+      const v = m.get(k) ?? { tickets: 0, yape: 0, efectivo: 0, pendientes: 0 };
+      v.tickets++;
+      if (t.estadoPago === 'Pendiente') v.pendientes++;
+      else if (t.metodoPago === 'Yape') v.yape++;
+      else v.efectivo++;
+      m.set(k, v);
+    }
+    return [...m.entries()].map(([nombre, v]) => ({ nombre, ...v })).sort((a, b) => b.tickets - a.tickets);
+  }, [tickets]);
+
   const pct = capacidad ? Math.round((s.vendidos / capacidad) * 100) : 0;
 
   async function cupos(n: number) {
-    if (!confirm(`¿Agregar ${n} cupos? El stock pasará de ${capacidad} a ${capacidad + n} (hasta el N° ${fmtNum(capacidad + n)}).`))
+    if (!confirm(`¿Agregar ${n} cupos? El stock pasará de ${capacidad} a ${capacidad + n} (hasta el N° ${fmtNum(ultimoNumero(capacidad + n))}).`))
       return;
     const r = await agregarCupos(n);
     setMsg(r.ok ? `Listo: ahora hay ${r.data} cupos.` : r.error);
@@ -168,6 +184,46 @@ export default function DashboardView() {
         />
       </section>
 
+      {/* Por vendedor */}
+      <section aria-labelledby="vendedores" className="space-y-2">
+        <h2 id="vendedores" className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/55">
+          <Users className="h-4 w-4" aria-hidden /> Por vendedor
+        </h2>
+        {porVendedor.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-white/15 p-4 text-center text-sm text-white/50">
+            Aún no hay ventas.
+          </p>
+        ) : (
+          <ul className="divide-y divide-white/[.07] overflow-hidden rounded-2xl border border-white/10 bg-noche-800/70">
+            {porVendedor.map((v, i) => {
+              const cobrado = (v.yape + v.efectivo) * PRECIO;
+              return (
+                <li key={v.nombre} className="flex items-center gap-3 px-3.5 py-3">
+                  <span
+                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-base ${
+                      i === 0 ? 'bg-oro text-noche-950' : 'bg-white/10 text-white/80'
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-semibold">{v.nombre}</p>
+                    <p className="text-xs text-white/50">
+                      Yape {soles(v.yape * PRECIO)} · Efectivo {soles(v.efectivo * PRECIO)}
+                      {v.pendientes > 0 && <span className="text-amber-300"> · Por cobrar {soles(v.pendientes * PRECIO)}</span>}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="font-display text-xl leading-none text-oro">{v.tickets}</p>
+                    <p className="text-[11px] tabular-nums text-white/55">{soles(cobrado)}</p>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       {/* Cocina */}
       <section aria-labelledby="cocina" className="space-y-2">
         <h2 id="cocina" className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-white/55">
@@ -186,7 +242,7 @@ export default function DashboardView() {
         <div>
           <h2 className="font-bold">Agregar cupos</h2>
           <p className="text-sm text-white/55">
-            Continúa la numeración desde el N° {fmtNum(capacidad + 1)}.
+            Continúa la numeración desde el N° {fmtNum(ultimoNumero(capacidad) + 1)}.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">

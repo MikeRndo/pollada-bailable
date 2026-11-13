@@ -26,6 +26,7 @@ interface Grupo {
   clave: string;
   tickets: Ticket[];
   comprador: string;
+  vendedor: string;
   telefono: string;
   metodo: Ticket['metodoPago'];
   fecha: string;
@@ -48,6 +49,7 @@ function agrupar(lista: Ticket[]): Grupo[] {
       clave,
       tickets: ts,
       comprador: ts[0].comprador,
+      vendedor: ts[0].vendedor,
       telefono: ts[0].telefono,
       metodo: ts[0].metodoPago,
       fecha: ts[0].fechaRegistro,
@@ -94,6 +96,7 @@ export default function TablaView() {
     const coincide = (g: Grupo) =>
       !n ||
       normalizar(g.comprador).includes(n) ||
+      normalizar(g.vendedor).includes(n) ||
       (dig !== '' &&
         (g.tickets.some((t) => fmtNum(t.numeroTicket).includes(dig) || t.numeroTicket === Number(dig)) ||
           g.telefono.replace(/\D/g, '').includes(dig)));
@@ -159,7 +162,7 @@ export default function TablaView() {
             className={`${inputCls} pl-12`}
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Buscar por N°, nombre o celular"
+            placeholder="Buscar por N°, nombre, celular o vendedor"
             aria-label="Buscar tickets"
             enterKeyHint="search"
           />
@@ -212,6 +215,9 @@ export default function TablaView() {
                         <span className="truncate font-semibold">{grp.comprador}</span>
                         <span className="shrink-0 text-xs text-white/40">{horaCorta(grp.fecha)}</span>
                       </span>
+                      {grp.vendedor && (
+                        <span className="block truncate text-xs text-white/45">Vendió: {grp.vendedor}</span>
+                      )}
                       <span className="mt-1 flex flex-wrap gap-1">
                         {grp.tickets.slice(0, 6).map((t) => (
                           <span
@@ -273,6 +279,8 @@ export default function TablaView() {
           <dl className="mb-3 grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-white/50">Comprador</dt>
             <dd className="font-semibold">{g.comprador}</dd>
+            <dt className="text-white/50">Vendedor</dt>
+            <dd>{g.vendedor || '—'}</dd>
             <dt className="text-white/50">Celular</dt>
             <dd>{g.telefono}</dd>
             <dt className="text-white/50">Total</dt>

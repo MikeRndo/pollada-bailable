@@ -13,7 +13,13 @@ export const EVENTO = {
 } as const;
 
 export const PRECIO = EVENTO.precio;
+/** Cantidad de tickets del lote inicial */
 export const STOCK_INICIAL = 500;
+/** Primer número de ticket: la numeración empieza en N° 500 y sube (500, 501, 502…) */
+export const NUMERO_INICIAL = 500;
+/** Último número disponible según la cantidad de cupos (500 cupos → N° 500 al 999) */
+export const ultimoNumero = (capacidad: number) => NUMERO_INICIAL + capacidad - 1;
+export const enStock = (n: number, capacidad: number) => n >= NUMERO_INICIAL && n <= ultimoNumero(capacidad);
 
 /** 1 → "001", 42 → "042", 1000 → "1000" */
 export const fmtNum = (n: number) => String(n).padStart(n >= 1000 ? 4 : 3, '0');

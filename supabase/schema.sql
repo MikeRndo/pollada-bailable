@@ -45,3 +45,6 @@ create policy "equipo_config" on public.config for all to anon using (true) with
 -- Tiempo real (caja ↔ cocina)
 alter publication supabase_realtime add table public.tickets;
 alter publication supabase_realtime add table public.config;
+
+-- Vendedor de cada ticket (para llevar la cuenta por vendedor)
+alter table public.tickets add column if not exists vendedor text not null default '';

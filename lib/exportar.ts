@@ -19,6 +19,7 @@ export function exportarCSV(tickets: Ticket[]) {
   const enc = [
     'N° Ticket',
     'Comprador',
+    'Vendedor',
     'Teléfono',
     'Método de pago',
     'Estado de pago',
@@ -35,6 +36,7 @@ export function exportarCSV(tickets: Ticket[]) {
     .map((t) => [
       fmtNum(t.numeroTicket),
       t.comprador,
+      t.vendedor,
       t.telefono,
       t.metodoPago,
       t.estadoPago,

@@ -15,6 +15,7 @@ export interface TicketRow {
   compra_id: string | null;
   firma: string;
   comprador: string;
+  vendedor: string | null;
   telefono: string;
   metodo_pago: Ticket['metodoPago'];
   estado_pago: Ticket['estadoPago'];
@@ -31,6 +32,7 @@ export const fromRow = (r: TicketRow): Ticket => ({
   compraId: r.compra_id ?? null,
   firma: r.firma,
   comprador: r.comprador,
+  vendedor: r.vendedor ?? '',
   telefono: r.telefono,
   metodoPago: r.metodo_pago,
   estadoPago: r.estado_pago,
@@ -47,6 +49,7 @@ export const toRow = (t: Ticket): TicketRow => ({
   compra_id: t.compraId ?? null,
   firma: t.firma,
   comprador: t.comprador,
+  vendedor: t.vendedor,
   telefono: t.telefono,
   metodo_pago: t.metodoPago,
   estado_pago: t.estadoPago,
