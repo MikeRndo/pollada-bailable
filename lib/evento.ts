@@ -4,7 +4,7 @@ import type { Ticket } from './types';
 /** Cuenta para pagos por Yape / Plin */
 export const PAGO_DIGITAL = {
   numero: '963 985 857',
-  titular: 'Yanina Alejandra Rurush Mallqui',
+  titular: 'Yanina Rurush',
 } as const;
 
 export const EVENTO = {

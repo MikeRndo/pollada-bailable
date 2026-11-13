@@ -26,7 +26,7 @@ export function mensajeCompra(ts: Ticket[]) {
   const varios = lista.length > 1;
   return [
     `Hola ${primerNombre(lista[0].comprador)}, le envío ${varios ? 'sus tickets' : 'su ticket'} N° ${nums} 🎟️`,
-    `El pago puede hacerlo por Yape/Plin al ${PAGO_DIGITAL.numero} (a nombre de ${PAGO_DIGITAL.titular}) o el mismo día en mesa.`,
+    `💳📲 El pago puede hacerlo por Yape/Plin al ${PAGO_DIGITAL.numero} (a nombre de ${PAGO_DIGITAL.titular}) 💰 o el mismo día en mesa 💵`,
     `Muestre ${varios ? 'los códigos QR' : 'el código QR'} al llegar para registrar ${varios ? 'sus tickets' : 'su ticket'}.`,
     ``,
     `🙏❤️ *Por la salud de Víctor Alejandro*`,
