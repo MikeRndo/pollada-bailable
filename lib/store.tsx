@@ -70,6 +70,11 @@ interface TicketsCtx extends Datos {
   /** Deshacer una entrega marcada por error (vuelve a la cola de Cocina) */
   devolverACocina: (id: string) => Promise<Resultado<Ticket>>;
   eliminar: (id: string) => Promise<Resultado<null>>;
+  /** Corrige comprador / celular / vendedor de uno o varios tickets (el QR no cambia) */
+  editarDatos: (
+    ids: string[],
+    datos: { comprador: string; telefono: string; vendedor: string },
+  ) => Promise<Resultado<null>>;
   agregarCupos: (n: number) => Promise<Resultado<number>>;
   importar: (datos: unknown) => Resultado<number>;
 }
@@ -388,6 +393,27 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     [transicion],
   );
 
+  const editarDatos = useCallback(
+    async (ids: string[], datos: { comprador: string; telefono: string; vendedor: string }): Promise<Resultado<null>> => {
+      const limpio = {
+        comprador: datos.comprador.trim().replace(/\s+/g, ' '),
+        telefono: datos.telefono.trim(),
+        vendedor: datos.vendedor.trim().replace(/\s+/g, ' '),
+      };
+      if (limpio.comprador.length < 2) return fallo('INVALIDO', 'Escribe el nombre del comprador.');
+      if (ids.length === 0) return fallo('NO_EXISTE', 'No hay tickets para editar.');
+      if (supabase) {
+        const { error } = await supabase.from('tickets').update(limpio).in('id', ids);
+        if (error) return fallo('RED', `No se pudo guardar: ${error.message}`);
+      }
+      const set = new Set(ids);
+      const d = ref.current;
+      commit({ ...d, tickets: d.tickets.map((t) => (set.has(t.id) ? { ...t, ...limpio } : t)) });
+      return { ok: true, data: null };
+    },
+    [commit],
+  );
+
   const eliminar = useCallback(
     async (id: string): Promise<Resultado<null>> => {
       if (supabase) {
@@ -448,10 +474,11 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       entregar,
       devolverACocina,
       eliminar,
+      editarDatos,
       agregarCupos,
       importar,
     };
-  }, [datos, listo, registrar, marcarPagado, escanear, entregar, devolverACocina, eliminar, agregarCupos, importar]);
+  }, [datos, listo, registrar, marcarPagado, escanear, entregar, devolverACocina, eliminar, editarDatos, agregarCupos, importar]);
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
 }

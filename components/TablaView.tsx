@@ -7,6 +7,8 @@ import {
   ChefHat,
   MessageCircle,
   PackageCheck,
+  Pencil,
+  Save,
   Search,
   Smartphone,
   Ticket as TicketIcon,
@@ -59,7 +61,11 @@ function agrupar(lista: Ticket[]): Grupo[] {
 }
 
 export default function TablaView() {
-  const { tickets, marcarPagado, escanear, entregar, eliminar } = useTickets();
+  const { tickets, marcarPagado, escanear, entregar, eliminar, editarDatos } = useTickets();
+  // Edición de datos del comprador
+  const [editando, setEditando] = useState(false);
+  const [form, setForm] = useState({ comprador: '', telefono: '', vendedor: '' });
+  const [guardando, setGuardando] = useState(false);
   const [q, setQ] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [orden, setOrden] = useState<Orden>('recientes');
@@ -245,6 +251,7 @@ export default function TablaView() {
                     onClick={() => {
                       setError(null);
                       setCobrarN(1);
+                      setEditando(false);
                       setSel(grp.clave);
                     }}
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-white/10"
@@ -317,8 +324,57 @@ export default function TablaView() {
       {g && (
         <Hoja
           titulo={g.tickets.length > 1 ? `${g.comprador} · ${g.tickets.length} tickets` : `Ticket N° ${fmtNum(g.primerNumero)}`}
-          onClose={() => setSel(null)}
+          onClose={() => {
+            setSel(null);
+            setEditando(false);
+          }}
         >
+          {editando ? (
+            <form
+              className="mb-3 space-y-3 rounded-2xl border border-oro/40 bg-oro/5 p-3"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setGuardando(true);
+                const ok = await accion(editarDatos(g.tickets.map((t) => t.id), form));
+                setGuardando(false);
+                if (ok) setEditando(false);
+              }}
+            >
+              <p className="text-sm font-semibold text-oro">Editar datos ({g.tickets.length > 1 ? `${g.tickets.length} tickets` : '1 ticket'})</p>
+              {(
+                [
+                  ['comprador', 'Nombre del comprador', 'text'],
+                  ['telefono', 'Celular / WhatsApp', 'tel'],
+                  ['vendedor', 'Vendedor', 'text'],
+                ] as const
+              ).map(([k, label, tipo]) => (
+                <div key={k}>
+                  <label htmlFor={`ed-${k}`} className="mb-1 block text-xs font-semibold text-white/70">
+                    {label}
+                  </label>
+                  <input
+                    id={`ed-${k}`}
+                    type={tipo}
+                    inputMode={tipo === 'tel' ? 'tel' : undefined}
+                    className={inputCls}
+                    value={form[k]}
+                    onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                    autoComplete="off"
+                  />
+                </div>
+              ))}
+              <p className="text-xs text-white/50">Los números de ticket y los códigos QR no cambian.</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Boton variante="suave" onClick={() => setEditando(false)}>
+                  Cancelar
+                </Boton>
+                <Boton type="submit" disabled={guardando || form.comprador.trim().length < 2}>
+                  <Save className="h-5 w-5" aria-hidden /> {guardando ? 'Guardando…' : 'Guardar'}
+                </Boton>
+              </div>
+            </form>
+          ) : (
+          <>
           <dl className="mb-3 grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-white/50">Comprador</dt>
             <dd className="font-semibold">{g.comprador}</dd>
@@ -331,6 +387,19 @@ export default function TablaView() {
             <dt className="text-white/50">Registrado</dt>
             <dd>{fechaHora(g.fecha)}</dd>
           </dl>
+          <Boton
+            variante="borde"
+            className="mb-3 w-full"
+            onClick={() => {
+              setForm({ comprador: g.comprador, telefono: g.telefono, vendedor: g.vendedor });
+              setError(null);
+              setEditando(true);
+            }}
+          >
+            <Pencil className="h-4 w-4" aria-hidden /> Editar nombre, celular o vendedor
+          </Boton>
+          </>
+          )}
 
           {error && <p className="mb-3 rounded-lg bg-red-500/15 p-2 text-sm text-red-200">{error}</p>}
 
