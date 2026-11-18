@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Banknote,
+  ChevronDown,
   ChefHat,
   Coins,
   FileJson,
@@ -16,7 +17,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useTickets } from '@/lib/store';
-import { PRECIO, fmtNum, soles, ultimoNumero } from '@/lib/evento';
+import { PRECIO, fmtNum, rangos, soles, ultimoNumero } from '@/lib/evento';
 import { exportarCSV, exportarJSON } from '@/lib/exportar';
 import { Boton, Tarjeta } from './ui';
 
@@ -88,20 +89,58 @@ export default function DashboardView() {
     };
   }, [tickets]);
 
-  // Cuenta por vendedor: tickets, cobrado y por cobrar
+  // Cuenta por vendedor: tickets, cobros, entregas y lista de compradores
   const porVendedor = useMemo(() => {
-    const m = new Map<string, { tickets: number; yape: number; efectivo: number; pendientes: number }>();
+    type Comprador = { clave: string; nombre: string; nums: number[]; recibidos: number; pendientesPago: number };
+    const m = new Map<
+      string,
+      {
+        tickets: number;
+        yape: number;
+        efectivo: number;
+        pendientes: number;
+        entregados: number;
+        enCocina: number;
+        compradores: Map<string, Comprador>;
+      }
+    >();
     for (const t of tickets) {
       const k = t.vendedor?.trim() || 'Sin vendedor';
-      const v = m.get(k) ?? { tickets: 0, yape: 0, efectivo: 0, pendientes: 0 };
+      const v = m.get(k) ?? {
+        tickets: 0,
+        yape: 0,
+        efectivo: 0,
+        pendientes: 0,
+        entregados: 0,
+        enCocina: 0,
+        compradores: new Map<string, Comprador>(),
+      };
       v.tickets++;
       if (t.estadoPago === 'Pendiente') v.pendientes++;
       else if (t.metodoPago === 'Yape') v.yape++;
       else v.efectivo++;
+      if (t.estadoEntrega === 'Entregado') v.entregados++;
+      else if (t.estadoEntrega === 'PorRecoger') v.enCocina++;
+      const ck = t.compraId ?? t.id;
+      const c = v.compradores.get(ck) ?? { clave: ck, nombre: t.comprador, nums: [], recibidos: 0, pendientesPago: 0 };
+      c.nums.push(t.numeroTicket);
+      if (t.estadoEntrega === 'Entregado') c.recibidos++;
+      if (t.estadoPago === 'Pendiente') c.pendientesPago++;
+      v.compradores.set(ck, c);
       m.set(k, v);
     }
-    return [...m.entries()].map(([nombre, v]) => ({ nombre, ...v })).sort((a, b) => b.tickets - a.tickets);
+    return [...m.entries()]
+      .map(([nombre, v]) => ({
+        nombre,
+        ...v,
+        faltan: v.tickets - v.entregados,
+        compradores: [...v.compradores.values()]
+          .map((c) => ({ ...c, nums: c.nums.sort((x, y) => x - y) }))
+          .sort((x, y) => x.nombre.localeCompare(y.nombre, 'es')),
+      }))
+      .sort((a, b) => b.tickets - a.tickets);
   }, [tickets]);
+  const [abierto, setAbierto] = useState<string | null>(null);
 
   const pct = capacidad ? Math.round((s.vendidos / capacidad) * 100) : 0;
 
@@ -194,29 +233,89 @@ export default function DashboardView() {
             Aún no hay ventas.
           </p>
         ) : (
-          <ul className="divide-y divide-white/[.07] overflow-hidden rounded-2xl border border-white/10 bg-noche-800/70">
+          <ul className="space-y-2">
             {porVendedor.map((v, i) => {
               const cobrado = (v.yape + v.efectivo) * PRECIO;
+              const open = abierto === v.nombre;
               return (
-                <li key={v.nombre} className="flex items-center gap-3 px-3.5 py-3">
-                  <span
-                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-base ${
-                      i === 0 ? 'bg-oro text-noche-950' : 'bg-white/10 text-white/80'
-                    }`}
+                <li key={v.nombre} className="overflow-hidden rounded-2xl border border-white/10 bg-noche-800/70">
+                  <button
+                    type="button"
+                    onClick={() => setAbierto(open ? null : v.nombre)}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-3 px-3.5 py-3 text-left active:bg-white/5"
                   >
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-semibold">{v.nombre}</p>
-                    <p className="text-xs text-white/50">
-                      Yape {soles(v.yape * PRECIO)} · Efectivo {soles(v.efectivo * PRECIO)}
-                      {v.pendientes > 0 && <span className="text-amber-300"> · Por cobrar {soles(v.pendientes * PRECIO)}</span>}
-                    </p>
+                    <span
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-full font-display text-base ${
+                        i === 0 ? 'bg-oro text-noche-950' : 'bg-white/10 text-white/80'
+                      }`}
+                    >
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{v.nombre}</p>
+                      <p className="text-xs text-white/50">
+                        {v.compradores.length} compradores · Cobrado {soles(cobrado)}
+                        {v.pendientes > 0 && <span className="text-amber-300"> · Por cobrar {soles(v.pendientes * PRECIO)}</span>}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="font-display text-xl leading-none text-oro">{v.tickets}</p>
+                      <p className="text-[11px] text-white/50">vendidas</p>
+                    </div>
+                    <ChevronDown
+                      className={`h-5 w-5 shrink-0 text-white/40 transition-transform ${open ? 'rotate-180' : ''}`}
+                      aria-hidden
+                    />
+                  </button>
+
+                  {/* Contador de entregas */}
+                  <div className="grid grid-cols-3 gap-px border-t border-white/[.07] bg-white/[.07] text-center">
+                    <div className="bg-noche-800 py-2">
+                      <p className="font-display text-lg leading-none text-sky-300">{v.entregados}</p>
+                      <p className="text-[11px] text-white/50">Entregó</p>
+                    </div>
+                    <div className="bg-noche-800 py-2">
+                      <p className="font-display text-lg leading-none text-orange-300">{v.enCocina}</p>
+                      <p className="text-[11px] text-white/50">En cocina</p>
+                    </div>
+                    <div className="bg-noche-800 py-2">
+                      <p className={`font-display text-lg leading-none ${v.faltan ? 'text-amber-300' : 'text-white/40'}`}>{v.faltan}</p>
+                      <p className="text-[11px] text-white/50">Faltan entregar</p>
+                    </div>
                   </div>
-                  <div className="shrink-0 text-right">
-                    <p className="font-display text-xl leading-none text-oro">{v.tickets}</p>
-                    <p className="text-[11px] tabular-nums text-white/55">{soles(cobrado)}</p>
+                  <div className="h-1.5 bg-white/10" aria-hidden>
+                    <div className="h-full bg-sky-400" style={{ width: `${(v.entregados / v.tickets) * 100}%` }} />
                   </div>
+
+                  {open && (
+                    <ul className="divide-y divide-white/[.07] border-t border-white/[.07]">
+                      {v.compradores.map((c) => {
+                        const n = c.nums.length;
+                        const listo = c.recibidos === n;
+                        return (
+                          <li key={c.clave} className="flex items-center gap-3 px-3.5 py-2.5">
+                            <span
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${listo ? 'bg-sky-400' : c.recibidos ? 'bg-orange-400' : 'bg-white/25'}`}
+                              aria-hidden
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold">{c.nombre}</p>
+                              <p className="truncate text-xs text-white/45">N° {rangos(c.nums)}</p>
+                            </div>
+                            <div className="shrink-0 text-right text-xs">
+                              <p className={listo ? 'font-semibold text-sky-300' : 'text-white/70'}>
+                                {listo ? 'Recibió todo' : `Recibió ${c.recibidos} de ${n}`}
+                              </p>
+                              {c.pendientesPago > 0 && (
+                                <p className="text-amber-300">Debe {soles(c.pendientesPago * PRECIO)}</p>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </li>
               );
             })}

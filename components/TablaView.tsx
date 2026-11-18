@@ -8,6 +8,7 @@ import {
   MessageCircle,
   PackageCheck,
   Pencil,
+  Plus,
   Save,
   Search,
   Smartphone,
@@ -20,6 +21,7 @@ import { mensajeCompra, waLink } from '@/lib/whatsapp';
 import type { Ticket } from '@/lib/types';
 import { Boton, Hoja, PillEntrega, PillPago, inputCls } from './ui';
 import TicketModal from './TicketModal';
+import AgregarTickets from './AgregarTickets';
 
 type Filtro = 'todos' | 'por-cobrar' | 'sin-escanear' | 'en-cocina' | 'recibidos';
 type Orden = 'recientes' | 'numero';
@@ -66,6 +68,7 @@ export default function TablaView() {
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState({ comprador: '', telefono: '', vendedor: '' });
   const [guardando, setGuardando] = useState(false);
+  const [agregando, setAgregando] = useState(false);
   const [q, setQ] = useState('');
   const [filtro, setFiltro] = useState<Filtro>('todos');
   const [orden, setOrden] = useState<Orden>('recientes');
@@ -252,6 +255,7 @@ export default function TablaView() {
                       setError(null);
                       setCobrarN(1);
                       setEditando(false);
+                      setAgregando(false);
                       setSel(grp.clave);
                     }}
                     className="flex w-full items-center gap-3 px-3 py-2.5 text-left active:bg-white/10"
@@ -327,6 +331,7 @@ export default function TablaView() {
           onClose={() => {
             setSel(null);
             setEditando(false);
+            setAgregando(false);
           }}
         >
           {editando ? (
@@ -398,6 +403,28 @@ export default function TablaView() {
           >
             <Pencil className="h-4 w-4" aria-hidden /> Editar nombre, celular o vendedor
           </Boton>
+          {agregando ? (
+            <AgregarTickets
+              compra={g.tickets}
+              onCancelar={() => setAgregando(false)}
+              onListo={(todos) => {
+                setAgregando(false);
+                setSel(null);
+                setVer(todos);
+              }}
+            />
+          ) : (
+            <Boton
+              variante="borde"
+              className="mb-3 w-full !border-emerald-400/40 !text-emerald-200"
+              onClick={() => {
+                setError(null);
+                setAgregando(true);
+              }}
+            >
+              <Plus className="h-4 w-4" aria-hidden /> Agregar tickets a esta compra
+            </Boton>
+          )}
           </>
           )}
 

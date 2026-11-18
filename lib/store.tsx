@@ -41,6 +41,8 @@ export interface NuevaCompra {
   estadoPago: EstadoPago;
   /** Pago parcial: cuántos de los tickets se pagan ahora (el resto queda pendiente) */
   pagados?: number;
+  /** Para sumar tickets a una compra que ya existe */
+  compraId?: string;
   /** Cantidad de tickets con numeración automática (siguientes libres) */
   cantidad?: number;
   /** Números físicos ingresados a mano (si viene, ignora "cantidad") */
@@ -71,6 +73,11 @@ interface TicketsCtx extends Datos {
   devolverACocina: (id: string) => Promise<Resultado<Ticket>>;
   eliminar: (id: string) => Promise<Resultado<null>>;
   /** Corrige comprador / celular / vendedor de uno o varios tickets (el QR no cambia) */
+  /** Agrega más tickets a una compra ya registrada (mismo comprador, celular y vendedor) */
+  agregarACompra: (
+    ids: string[],
+    extra: Pick<NuevaCompra, 'cantidad' | 'numeros' | 'pagados' | 'metodoPago'>,
+  ) => Promise<Resultado<Ticket[]>>;
   editarDatos: (
     ids: string[],
     datos: { comprador: string; telefono: string; vendedor: string },
@@ -251,7 +258,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
         numeros.sort((x, y) => x - y);
         const ahora = new Date().toISOString();
-        const compraId = numeros.length > 1 ? nuevoId() : null;
+        const compraId = c.compraId ?? (numeros.length > 1 ? nuevoId() : null);
         // Cuántos tickets quedan pagados ahora (pago parcial: los primeros N)
         const nPagados = Math.max(0, Math.min(numeros.length, c.pagados ?? (c.estadoPago === 'Pagado' ? numeros.length : 0)));
         const nuevos: Ticket[] = numeros.map((numero, i) => ({
@@ -393,6 +400,42 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     [transicion],
   );
 
+  const agregarACompra = useCallback(
+    async (
+      ids: string[],
+      extra: Pick<NuevaCompra, 'cantidad' | 'numeros' | 'pagados' | 'metodoPago'>,
+    ): Promise<Resultado<Ticket[]>> => {
+      const actuales = ref.current.tickets.filter((t) => ids.includes(t.id));
+      if (actuales.length === 0) return fallo('NO_EXISTE', 'La compra no existe.');
+      const base = actuales[0];
+      let compraId = actuales.find((t) => t.compraId)?.compraId ?? null;
+
+      // Si era un solo ticket (sin grupo), se crea el grupo para que todos queden juntos
+      if (!compraId) {
+        compraId = nuevoId();
+        if (supabase) {
+          const { error } = await supabase.from('tickets').update({ compra_id: compraId }).in('id', ids);
+          if (error) return fallo('RED', `No se pudo guardar: ${error.message}`);
+        }
+        const d = ref.current;
+        commit({ ...d, tickets: d.tickets.map((t) => (ids.includes(t.id) ? { ...t, compraId } : t)) });
+      }
+
+      return registrar({
+        comprador: base.comprador,
+        telefono: base.telefono,
+        vendedor: base.vendedor,
+        metodoPago: extra.metodoPago,
+        estadoPago: 'Pagado',
+        pagados: extra.pagados ?? 0,
+        cantidad: extra.cantidad,
+        numeros: extra.numeros,
+        compraId,
+      });
+    },
+    [commit, registrar],
+  );
+
   const editarDatos = useCallback(
     async (ids: string[], datos: { comprador: string; telefono: string; vendedor: string }): Promise<Resultado<null>> => {
       const limpio = {
@@ -475,10 +518,11 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       devolverACocina,
       eliminar,
       editarDatos,
+      agregarACompra,
       agregarCupos,
       importar,
     };
-  }, [datos, listo, registrar, marcarPagado, escanear, entregar, devolverACocina, eliminar, editarDatos, agregarCupos, importar]);
+  }, [datos, listo, registrar, marcarPagado, escanear, entregar, devolverACocina, eliminar, editarDatos, agregarACompra, agregarCupos, importar]);
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
 }
