@@ -19,7 +19,7 @@ export const PLANTILLA = {
   alto: 1024,
 } as const;
 
-const CAJA = { x: 1067, y: 402, w: 258, h: 296 };
+export const CAJA = { x: 1067, y: 402, w: 258, h: 296 };
 const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 
 /** Relación de aspecto del afiche (ancho / alto) */

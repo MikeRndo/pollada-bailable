@@ -2,14 +2,30 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { toBlob } from 'html-to-image';
-import { ChevronLeft, ChevronRight, Download, Maximize2, MessageCircle, Printer, Share2, X } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import {
+  CircleCheck,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileArchive,
+  Maximize2,
+  MessageCircle,
+  Printer,
+  Share2,
+  X,
+} from 'lucide-react';
 import TicketCard, { PLANTILLA } from './TicketCard';
 import { Boton, Hoja, PillEntrega, PillPago } from './ui';
 import { useTickets } from '@/lib/store';
-import { PRECIO, fmtNum, rangos } from '@/lib/evento';
+import { PRECIO, fmtNum, qrPayload, rangos } from '@/lib/evento';
 import { mensajeCompra, waLink } from '@/lib/whatsapp';
 import { descargarBlob } from '@/lib/exportar';
+import { cargarAfiche, generarImagenTicket } from '@/lib/imagenTicket';
+import { crearZip } from '@/lib/zip';
+
+/** El menú Compartir de Android/iPhone acepta como máximo 10 archivos por envío */
+const POR_ENVIO = 10;
 
 export default function TicketModal({
   ticketIds,
@@ -30,39 +46,45 @@ export default function TicketModal({
     [ticketIds, tickets],
   );
 
-  const capturas = useRef<(HTMLDivElement | null)[]>([]);
+  const qrs = useRef<HTMLDivElement>(null);
   const carrusel = useRef<HTMLDivElement>(null);
-  const [pngs, setPngs] = useState<Blob[] | null>(null);
+  const [imgs, setImgs] = useState<Blob[] | null>(null);
+  const [progreso, setProgreso] = useState(0);
+  const [fallo, setFallo] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [enviados, setEnviados] = useState<Set<number>>(new Set());
   const [actual, setActual] = useState(0);
   const [grande, setGrande] = useState(false);
+  const [zipeando, setZipeando] = useState(false);
 
-  const firmaLista = lista.map((t) => `${t.id}:${t.estadoPago}`).join('|');
+  const firmaLista = lista.map((t) => `${t.id}:${t.firma}`).join('|');
 
-  // Pre-genera las imágenes para que "Compartir" sea instantáneo
-  // (los celulares exigen que navigator.share se llame justo tras el toque).
+  // Genera las imágenes al abrir (rápido: se dibujan en canvas, una por una, mostrando el avance)
   useEffect(() => {
     if (lista.length === 0) return;
     let cancelado = false;
-    setPngs(null);
+    setImgs(null);
+    setProgreso(0);
+    setFallo(null);
+    setEnviados(new Set());
     (async () => {
-      // Espera a que el afiche y las fuentes estén listos antes de "fotografiar" el ticket
       await document.fonts?.ready;
-      const img = new Image();
-      img.src = PLANTILLA.src;
-      await img.decode().catch(() => {});
-      await new Promise((r) => setTimeout(r, 250));
+      const afiche = await cargarAfiche(PLANTILLA.src);
+      const escala = lista.length > POR_ENVIO ? 0.75 : 1;
       const out: Blob[] = [];
       for (let i = 0; i < lista.length; i++) {
-        const nodo = capturas.current[i];
-        if (!nodo) return;
-        // Copia a 1536 px = tamaño real del afiche → imagen nítida, sin reescalar
-        const b = await toBlob(nodo, { pixelRatio: lista.length > 6 ? 0.75 : 1, quality: 0.95 });
         if (cancelado) return;
-        if (b) out.push(b);
+        const svg = qrs.current?.querySelector<SVGSVGElement>(`[data-qr="${lista[i].id}"] svg`);
+        if (!svg) throw new Error('QR no encontrado');
+        out.push(await generarImagenTicket({ afiche, qrSvg: svg, numero: fmtNum(lista[i].numeroTicket), escala }));
+        setProgreso(i + 1);
+        await new Promise((r) => setTimeout(r, 0)); // deja respirar al celular
       }
-      if (!cancelado) setPngs(out);
-    })().catch(() => {});
+      if (!cancelado) setImgs(out);
+    })().catch((e) => {
+      console.error(e);
+      if (!cancelado) setFallo('No se pudieron preparar las imágenes. Cierra y vuelve a abrir el ticket.');
+    });
     return () => {
       cancelado = true;
     };
@@ -73,8 +95,14 @@ export default function TicketModal({
   const t0 = lista[0];
   const varios = lista.length > 1;
   const texto = mensajeCompra(lista);
-  const nombres = lista.map((t) => `ticket-pollada-${fmtNum(t.numeroTicket)}.png`);
+  const nombres = lista.map((t) => `ticket-pollada-${fmtNum(t.numeroTicket)}.jpg`);
   const actualT = lista[Math.min(actual, lista.length - 1)];
+  const pendientes = lista.filter((t) => t.estadoPago === 'Pendiente').length;
+
+  // Grupos de máx. 10 tickets por envío
+  const lotes: number[][] = [];
+  for (let i = 0; i < lista.length; i += POR_ENVIO)
+    lotes.push(Array.from({ length: Math.min(POR_ENVIO, lista.length - i) }, (_, k) => i + k));
 
   function ir(i: number) {
     const el = carrusel.current;
@@ -83,48 +111,60 @@ export default function TicketModal({
     el.scrollTo({ left: destino * el.clientWidth, behavior: 'smooth' });
   }
 
-  /** Abre el chat del número registrado (así aparece primero al compartir) */
   function abrirChat() {
     window.open(waLink(t0.telefono, ''), '_blank', 'noopener');
   }
 
-  /** Envía la(s) imagen(es) del ticket con QR + el mensaje, juntos, por WhatsApp */
-  async function enviarTicket() {
+  async function descargarZip() {
+    if (!imgs) return;
+    setZipeando(true);
+    try {
+      const zip = await crearZip(imgs.map((b, i) => ({ nombre: nombres[i], blob: b })));
+      descargarBlob(zip, `tickets-${t0.comprador.split(' ')[0].toLowerCase()}-N${fmtNum(t0.numeroTicket)}.zip`);
+    } finally {
+      setZipeando(false);
+    }
+  }
+
+  /** Envía un grupo de tickets (imágenes con QR) por WhatsApp; el primero lleva el mensaje */
+  async function enviarLote(n: number) {
     setAviso(null);
-    if (!pngs || !pngs.length) return;
-    const archivos = pngs.map((b, i) => new File([b], nombres[i], { type: 'image/png' }));
-    if (navigator.canShare?.({ files: archivos, text: texto })) {
+    if (!imgs) return;
+    const idx = lotes[n];
+    const archivos = idx.map((i) => new File([imgs[i]], nombres[i], { type: 'image/jpeg' }));
+    const datos: ShareData = n === 0 ? { files: archivos, text: texto, title: 'Tickets Gran Pollada Pro Salud' } : { files: archivos };
+    if (navigator.canShare?.(datos)) {
       try {
-        // Igual que la versión que salía agrupada: imágenes + texto (como pie de foto) + título
-        await navigator.share({ files: archivos, text: texto, title: 'Tickets Gran Pollada Pro Salud' });
+        await navigator.share(datos);
+        setEnviados((s) => new Set(s).add(n));
         return;
       } catch (e) {
         if ((e as DOMException)?.name === 'AbortError') return;
       }
     }
-    // PC o navegador sin compartir archivos: descarga las imágenes y abre el chat con el mensaje
-    pngs.forEach((b, i) => setTimeout(() => descargarBlob(b, nombres[i]), i * 350));
+    // PC o navegador sin compartir: UNA sola descarga (imagen o .zip) + abre el chat con el mensaje
+    if (idx.length === 1) descargarBlob(imgs[idx[0]], nombres[idx[0]]);
+    else await descargarZip();
     window.open(waLink(t0.telefono, texto), '_blank', 'noopener');
     setAviso(
-      varios
-        ? `Se descargaron ${pngs.length} imágenes y se abrió el chat: adjúntalas antes de enviar.`
-        : 'Se descargó la imagen y se abrió el chat: adjúntala antes de enviar.',
+      idx.length === 1
+        ? 'Se descargó la imagen y se abrió el chat: adjúntala antes de enviar.'
+        : 'Se descargó un .zip con todos los tickets y se abrió el chat: descomprímelo y adjunta las imágenes.',
     );
   }
 
-
-
-
-
-  const pendientes = lista.filter((t) => t.estadoPago === 'Pendiente').length;
+  const listo = !!imgs;
 
   return (
     <Hoja
-      titulo={titulo ?? (varios ? `${lista.length} tickets · N° ${rangos(lista.map((t) => t.numeroTicket))}` : `Ticket N° ${fmtNum(t0.numeroTicket)}`)}
+      titulo={
+        titulo ??
+        (varios ? `${lista.length} tickets · N° ${rangos(lista.map((t) => t.numeroTicket))}` : `Ticket N° ${fmtNum(t0.numeroTicket)}`)
+      }
       onClose={onClose}
     >
       <div className="space-y-4">
-        {/* Carrusel: un ticket por vista, se desliza con el dedo */}
+        {/* Carrusel: un ticket por vista */}
         <div className="relative">
           <div
             ref={carrusel}
@@ -179,15 +219,9 @@ export default function TicketModal({
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-semibold">{t0.comprador}</span>
           <span className="text-white/50">· {t0.telefono}</span>
-          <span className="text-white/50">
-            · {t0.metodoPago} · S/ {lista.length * PRECIO}
-          </span>
+          <span className="text-white/50">· S/ {lista.length * PRECIO}</span>
           {varios ? (
-            pendientes > 0 ? (
-              <PillPago estado="Pendiente" />
-            ) : (
-              <PillPago estado="Pagado" />
-            )
+            <PillPago estado={pendientes > 0 ? 'Pendiente' : 'Pagado'} />
           ) : (
             <>
               <PillPago estado={t0.estadoPago} />
@@ -196,13 +230,53 @@ export default function TicketModal({
           )}
         </div>
 
-        <Boton variante="verde" onClick={enviarTicket} disabled={!pngs} className="w-full text-base">
-          <Share2 className="h-5 w-5" aria-hidden />
-          {!pngs ? 'Preparando ticket…' : varios ? `Enviar ${lista.length} tickets por WhatsApp` : 'Enviar ticket por WhatsApp'}
-        </Boton>
+        {/* Preparando imágenes */}
+        {!listo && !fallo && (
+          <div className="space-y-1.5" role="status">
+            <p className="text-sm text-white/70">
+              Preparando imágenes… {progreso} de {lista.length}
+            </p>
+            <div className="h-2 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-emerald-400 transition-[width]"
+                style={{ width: `${(progreso / lista.length) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {fallo && <p className="rounded-lg bg-red-500/15 p-2 text-sm text-red-200">{fallo}</p>}
+
+        {/* Envío: 1 botón, o varios grupos de 10 */}
+        {lotes.length === 1 ? (
+          <Boton variante="verde" onClick={() => enviarLote(0)} disabled={!listo} className="w-full text-base">
+            <Share2 className="h-5 w-5" aria-hidden />
+            {varios ? `Enviar ${lista.length} tickets por WhatsApp` : 'Enviar ticket por WhatsApp'}
+          </Boton>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-sm text-white/70">
+              WhatsApp acepta hasta {POR_ENVIO} imágenes por envío. Envía cada grupo al mismo chat:
+            </p>
+            {lotes.map((idx, n) => {
+              const hecho = enviados.has(n);
+              return (
+                <Boton
+                  key={n}
+                  variante={hecho ? 'suave' : 'verde'}
+                  onClick={() => enviarLote(n)}
+                  disabled={!listo}
+                  className="w-full"
+                >
+                  {hecho ? <CircleCheck className="h-5 w-5" aria-hidden /> : <Share2 className="h-5 w-5" aria-hidden />}
+                  {n + 1}° envío · N° {rangos(idx.map((i) => lista[i].numeroTicket))}
+                  {n === 0 ? ' + mensaje' : ''}
+                </Boton>
+              );
+            })}
+          </div>
+        )}
         <p className="-mt-2 text-xs text-white/55">
-          Va {varios ? 'cada ticket con su QR' : 'la imagen del ticket con su QR'} + el mensaje. Elige <b>WhatsApp</b> y el
-          chat de <b>{t0.comprador.split(' ')[0]}</b> ({t0.telefono}).
+          Elige <b>WhatsApp</b> y el chat de <b>{t0.comprador.split(' ')[0]}</b> ({t0.telefono}).
         </p>
         <button
           type="button"
@@ -214,39 +288,36 @@ export default function TicketModal({
         </button>
         {aviso && <p className="rounded-lg bg-amber-500/15 p-2 text-sm text-amber-200">{aviso}</p>}
 
-        <div className="grid grid-cols-2 gap-2">
+        <div className={`grid gap-2 ${varios ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <Boton
             variante="suave"
-            disabled={!pngs}
-            onClick={() => pngs?.forEach((b, i) => setTimeout(() => descargarBlob(b, nombres[i]), i * 350))}
+            disabled={!listo}
+            onClick={() => imgs && descargarBlob(imgs[Math.min(actual, imgs.length - 1)], nombres[Math.min(actual, nombres.length - 1)])}
+            className="!px-2 text-sm"
           >
-            <Download className="h-5 w-5" aria-hidden /> Descargar PNG
+            <Download className="h-5 w-5 shrink-0" aria-hidden /> {varios ? 'Este' : 'Descargar'}
           </Boton>
-          <Boton variante="suave" onClick={() => window.print()}>
-            <Printer className="h-5 w-5" aria-hidden /> Imprimir
+          {varios && (
+            <Boton variante="suave" disabled={!listo || zipeando} onClick={descargarZip} className="!px-2 text-sm">
+              <FileArchive className="h-5 w-5 shrink-0" aria-hidden /> {zipeando ? '…' : 'Todos .zip'}
+            </Boton>
+          )}
+          <Boton variante="suave" onClick={() => window.print()} className="!px-2 text-sm">
+            <Printer className="h-5 w-5 shrink-0" aria-hidden /> Imprimir
           </Boton>
         </div>
       </div>
 
-      {/* Copias fuera de pantalla al tamaño real del afiche para generar imágenes nítidas */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed left-[-20000px] top-0"
-        style={{ width: PLANTILLA.ancho }}
-      >
-        {lista.map((t, i) => (
-          <div
-            key={t.id}
-            ref={(el) => {
-              capturas.current[i] = el;
-            }}
-          >
-            <TicketCard ticket={t} />
+      {/* QRs ocultos: de aquí se copian al dibujar cada imagen */}
+      <div ref={qrs} aria-hidden className="pointer-events-none fixed left-[-9999px] top-0">
+        {lista.map((t) => (
+          <div key={t.id} data-qr={t.id}>
+            <QRCodeSVG value={qrPayload(t)} level="H" marginSize={0} size={256} bgColor="#ffffff" fgColor="#000000" />
           </div>
         ))}
       </div>
 
-      {/* Solo visible al imprimir: un ticket debajo de otro (va directo en <body>) */}
+      {/* Solo visible al imprimir */}
       {typeof document !== 'undefined' &&
         createPortal(
           <div id="zona-impresion" className="hidden">
