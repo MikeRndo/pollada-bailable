@@ -18,7 +18,7 @@ import {
   User,
 } from 'lucide-react';
 import { MAX_POR_COMPRA, useTickets } from '@/lib/store';
-import { enStock, fmtNum, NUMERO_INICIAL, parseNumeros, PRECIO, rangos, soloDigitos, ultimoNumero } from '@/lib/evento';
+import { enStock, fmtNum, parseNumeros, PRECIO, rangoStock, rangos, soloDigitos } from '@/lib/evento';
 import { desbloquearAudio, sonidoError, sonidoVenta } from '@/lib/sonido';
 import type { EstadoPago, MetodoPago } from '@/lib/types';
 import { Boton, Segmentado, Tarjeta, inputCls } from './ui';
@@ -73,7 +73,7 @@ export default function VenderView() {
         avisos.push(`${n} no es válido`);
       } else if (!enStock(n, capacidad)) {
         malos.add(n);
-        avisos.push(`N° ${fmtNum(n)} fuera del stock (${fmtNum(NUMERO_INICIAL)}–${fmtNum(ultimoNumero(capacidad))})`);
+        avisos.push(`N° ${fmtNum(n)} no válido (se usan ${rangoStock(capacidad)})`);
       } else {
         const v = porNumero.get(n);
         if (v) {

@@ -17,7 +17,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { useTickets } from '@/lib/store';
-import { PRECIO, fmtNum, rangos, soles, ultimoNumero } from '@/lib/evento';
+import { PRECIO, fmtNum, numeroDeIndice, rangoStock, rangos, soles, ultimoNumero } from '@/lib/evento';
 import { exportarCSV, exportarJSON } from '@/lib/exportar';
 import { Boton, Tarjeta } from './ui';
 
@@ -341,7 +341,7 @@ export default function DashboardView() {
         <div>
           <h2 className="font-bold">Agregar cupos</h2>
           <p className="text-sm text-white/55">
-            Continúa la numeración desde el N° {fmtNum(ultimoNumero(capacidad) + 1)}.
+            Números válidos ahora: N° {rangoStock(capacidad)}. Continúa desde el N° {fmtNum(numeroDeIndice(capacidad))}.
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2">

@@ -21,11 +21,57 @@ export const EVENTO = {
 export const PRECIO = EVENTO.precio;
 /** Cantidad de tickets del lote inicial */
 export const STOCK_INICIAL = 500;
-/** Primer número de ticket: la numeración empieza en N° 501 y sube (501, 502, 503…) */
-export const NUMERO_INICIAL = 501;
-/** Último número disponible según la cantidad de cupos (500 cupos → N° 501 al 1000) */
-export const ultimoNumero = (capacidad: number) => NUMERO_INICIAL + capacidad - 1;
-export const enStock = (n: number, capacidad: number) => n >= NUMERO_INICIAL && n <= ultimoNumero(capacidad);
+/**
+ * Bloques de numeración: del N° 501 al 800 y luego salta al N° 1001 en adelante.
+ * (Del 801 al 1000 NO se usan.) Para cambiarlo, edita solo esta lista.
+ */
+export const BLOQUES: { desde: number; hasta: number }[] = [
+  { desde: 501, hasta: 800 },
+  { desde: 1001, hasta: Number.POSITIVE_INFINITY },
+];
+/** Primer número de ticket */
+export const NUMERO_INICIAL = BLOQUES[0].desde;
+
+/** Posición k (0, 1, 2…) → número de ticket. Ej: 0 → 501, 299 → 800, 300 → 1001 */
+export function numeroDeIndice(k: number): number {
+  let resto = k;
+  for (const b of BLOQUES) {
+    const tam = b.hasta - b.desde + 1;
+    if (resto < tam) return b.desde + resto;
+    resto -= tam;
+  }
+  return Number.NaN;
+}
+
+/** Número de ticket → posición k, o -1 si el número no se usa (ej. 801–1000 o menor a 501) */
+export function indiceDeNumero(n: number): number {
+  let base = 0;
+  for (const b of BLOQUES) {
+    if (n >= b.desde && n <= b.hasta) return base + (n - b.desde);
+    base += b.hasta - b.desde + 1;
+  }
+  return -1;
+}
+
+/** Último número disponible según la cantidad de cupos (500 cupos → 501–800 y 1001–1200) */
+export const ultimoNumero = (capacidad: number) => numeroDeIndice(capacidad - 1);
+
+/** ¿El número está dentro del stock actual? */
+export const enStock = (n: number, capacidad: number) => {
+  const k = indiceDeNumero(n);
+  return k >= 0 && k < capacidad;
+};
+
+/** Texto del rango válido, ej. "501–800 y 1001–1200" */
+export function rangoStock(capacidad: number): string {
+  const fin = ultimoNumero(capacidad);
+  const partes: string[] = [];
+  for (const b of BLOQUES) {
+    if (b.desde > fin) break;
+    partes.push(`${fmtNum(b.desde)}–${fmtNum(Math.min(b.hasta, fin))}`);
+  }
+  return partes.join(' y ');
+}
 
 /** 1 → "001", 42 → "042", 1000 → "1000" */
 export const fmtNum = (n: number) => String(n).padStart(n >= 1000 ? 4 : 3, '0');

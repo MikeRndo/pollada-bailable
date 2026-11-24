@@ -40,7 +40,7 @@ dibujan el QR y el N° correlativo, dentro del recuadro blanco "QR TM" (medido a
 
 ## Numeración y QR
 
-- La numeración empieza en **N° 501**: el stock inicial va del N° 501 al 1000 y los cupos extra continúan en 1001, 1002… (se cambia en `NUMERO_INICIAL`, `lib/evento.ts`).
+- La numeración va del **N° 501 al 800** y luego salta al **N° 1001** en adelante (del 801 al 1000 no se usan). Con 500 cupos: 501–800 y 1001–1200. Se cambia en `BLOQUES`, `lib/evento.ts`. (se cambia en `NUMERO_INICIAL`, `lib/evento.ts`).
 - Cada venta guarda el **vendedor**; el Dashboard muestra cuánto vendió cada uno (ejecuta `supabase/03-vendedor.sql` una vez).
 - "Siguiente libre" toma el **menor número sin vender**, así que si anulas una venta ese número se reutiliza.
 - El QR contiene `POLLADA-2026-042-9F3A1C0B`: número + firma aleatoria de 8 caracteres. Si alguien copia el

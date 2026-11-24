@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from 'react';
 import type { EstadoPago, MetodoPago, Ticket } from './types';
-import { NUMERO_INICIAL, STOCK_INICIAL, enStock, fmtNum, nuevaFirma, nuevoId, ultimoNumero } from './evento';
+import { STOCK_INICIAL, enStock, fmtNum, nuevaFirma, nuevoId, numeroDeIndice, rangoStock } from './evento';
 import { fromRow, supabase, toRow, type TicketRow } from './supabase';
 
 const LS_KEY = 'pollada-bailable:v1';
@@ -120,8 +120,11 @@ function leerLocal(): Datos | null {
 function calcularLibres(d: Datos, cuantos: number): number[] {
   const usados = new Set(d.tickets.map((t) => t.numeroTicket));
   const out: number[] = [];
-  const fin = ultimoNumero(d.capacidad);
-  for (let n = NUMERO_INICIAL; n <= fin && out.length < cuantos; n++) if (!usados.has(n)) out.push(n);
+  // Recorre los números válidos en orden: 501…800, 1001, 1002…
+  for (let k = 0; k < d.capacidad && out.length < cuantos; k++) {
+    const n = numeroDeIndice(k);
+    if (!usados.has(n)) out.push(n);
+  }
   return out;
 }
 
@@ -234,7 +237,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           if (fuera.length)
             return fallo(
               'FUERA_STOCK',
-              `Fuera del stock (N° ${fmtNum(NUMERO_INICIAL)}–${fmtNum(ultimoNumero(d.capacidad))}): ${fuera.map(fmtNum).join(', ')}. Agrega cupos primero.`,
+              `Fuera del stock (N° ${rangoStock(d.capacidad)}): ${fuera.map(fmtNum).join(', ')}. Agrega cupos primero.`,
             );
           const usados = numeros
             .map((n) => d.tickets.find((t) => t.numeroTicket === n))
