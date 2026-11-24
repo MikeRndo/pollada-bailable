@@ -1,5 +1,6 @@
 import { PRECIO, fechaHora, fmtNum, qrPayload } from './evento';
 import type { Ticket } from './types';
+import { crearExcel } from './excel';
 
 export function descargarBlob(blob: Blob, nombre: string) {
   const url = URL.createObjectURL(blob);
@@ -51,6 +52,12 @@ export function exportarCSV(tickets: Ticket[]) {
   const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = '﻿' + [enc, ...filas].map((f) => f.map(esc).join(',')).join('\r\n');
   descargarBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `pollada-registro-${sello()}.csv`);
+}
+
+/** Excel real (.xlsx) con formato: cada dato en su celda + hoja Resumen */
+export async function exportarExcel(tickets: Ticket[]) {
+  const xlsx = await crearExcel(tickets);
+  descargarBlob(xlsx, `pollada-registro-${sello()}.xlsx`);
 }
 
 export function exportarJSON(datos: { tickets: Ticket[]; capacidad: number }) {

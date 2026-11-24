@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { useTickets } from '@/lib/store';
 import { PRECIO, fmtNum, numeroDeIndice, rangoStock, rangos, soles, ultimoNumero } from '@/lib/evento';
-import { exportarCSV, exportarJSON } from '@/lib/exportar';
+import { exportarExcel, exportarJSON } from '@/lib/exportar';
 import { Boton, Tarjeta } from './ui';
 
 function Barra({ valor, total, color }: { valor: number; total: number; color: string }) {
@@ -360,8 +360,8 @@ export default function DashboardView() {
           <h2 className="font-bold">Respaldo</h2>
           <p className="text-sm text-white/55">Descarga el registro completo para Excel o para guardarlo.</p>
         </div>
-        <Boton className="w-full" onClick={() => exportarCSV(tickets)} disabled={tickets.length === 0}>
-          <FileSpreadsheet className="h-5 w-5" aria-hidden /> Exportar a Excel (CSV)
+        <Boton className="w-full" onClick={() => void exportarExcel(tickets)} disabled={tickets.length === 0}>
+          <FileSpreadsheet className="h-5 w-5" aria-hidden /> Exportar a Excel (.xlsx)
         </Boton>
         <div className="grid grid-cols-2 gap-2">
           <Boton variante="suave" onClick={() => exportarJSON({ tickets, capacidad })}>
