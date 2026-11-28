@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   ArrowDownWideNarrow,
+  BadgeX,
   Banknote,
   ChefHat,
   MessageCircle,
@@ -63,7 +64,7 @@ function agrupar(lista: Ticket[]): Grupo[] {
 }
 
 export default function TablaView() {
-  const { tickets, marcarPagado, escanear, entregar, eliminar, editarDatos } = useTickets();
+  const { tickets, marcarPagado, quitarPago, escanear, entregar, eliminar, editarDatos } = useTickets();
   // Edición de datos del comprador
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState({ comprador: '', telefono: '', vendedor: '' });
@@ -457,6 +458,25 @@ export default function TablaView() {
                   <div className="h-full rounded-full bg-emerald-400" style={{ width: `${(pag / total) * 100}%` }} />
                 </div>
 
+                {pag > 0 && (
+                  <button
+                    type="button"
+                    disabled={cobrando}
+                    onClick={async () => {
+                      if (!confirm(`¿Quitar el pago de ${pag === 1 ? 'el ticket pagado' : `los ${pag} tickets pagados`}? Quedarán como "Por cobrar".`))
+                        return;
+                      setCobrando(true);
+                      for (const t of g.tickets.filter((x) => x.estadoPago === 'Pagado')) {
+                        if (!(await accion(quitarPago(t.id)))) break;
+                      }
+                      setCobrando(false);
+                    }}
+                    className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-amber-300 underline-offset-2 hover:underline disabled:opacity-40"
+                  >
+                    <BadgeX className="h-4 w-4" aria-hidden /> ¿Se marcó pagado por error? Quitar pago
+                  </button>
+                )}
+
                 {pend === 0 ? (
                   <p className="text-center text-sm font-semibold text-emerald-300">✅ Todo pagado</p>
                 ) : (
@@ -512,6 +532,20 @@ export default function TablaView() {
                     <span className="text-xs text-white/45">{horaCorta(t.fechaEntrega ?? t.fechaEscaneo)}</span>
                   )}
                 </span>
+                {t.estadoPago === 'Pagado' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`¿Quitar el pago del N° ${fmtNum(t.numeroTicket)}? Quedará como "Por cobrar".`))
+                        void accion(quitarPago(t.id));
+                    }}
+                    aria-label={`Quitar pago del N° ${fmtNum(t.numeroTicket)} (se marcó por error)`}
+                    title="Quitar pago"
+                    className="grid h-10 w-10 place-items-center rounded-lg bg-amber-500/15 text-amber-300"
+                  >
+                    <BadgeX className="h-5 w-5" aria-hidden />
+                  </button>
+                )}
                 {t.estadoPago === 'Pagado' && t.estadoEntrega === 'Pendiente' && (
                   <button
                     type="button"

@@ -65,6 +65,8 @@ interface TicketsCtx extends Datos {
   libres: (n: number) => number[];
   registrar: (c: NuevaCompra) => Promise<Resultado<Ticket[]>>;
   marcarPagado: (id: string, metodo: MetodoPago) => Promise<Resultado<Ticket>>;
+  /** Corrige un pago marcado por error: el ticket vuelve a 'Pendiente' de pago */
+  quitarPago: (id: string) => Promise<Resultado<Ticket>>;
   /** Escáner: ticket pagado → pasa a la cola de Cocina ("Por recoger") */
   escanear: (id: string) => Promise<Resultado<Ticket>>;
   /** Cocina: entrega la pollada y la valida como recibida */
@@ -325,6 +327,22 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     [parchar],
   );
 
+  const quitarPago = useCallback(
+    async (id: string): Promise<Resultado<Ticket>> => {
+      const t = ref.current.tickets.find((x) => x.id === id);
+      if (!t) return fallo('NO_EXISTE', 'El ticket no existe.');
+      if (supabase) {
+        const { error } = await supabase
+          .from('tickets')
+          .update({ estado_pago: 'Pendiente', fecha_pago: null })
+          .eq('id', id);
+        if (error) return fallo('RED', `No se pudo guardar: ${error.message}`, t);
+      }
+      return { ok: true, data: parchar(id, { estadoPago: 'Pendiente', fechaPago: null }) };
+    },
+    [parchar],
+  );
+
   /**
    * Cambio de estado atómico: en Supabase solo se aplica si el estado actual sigue
    * siendo el esperado, así dos celulares no pueden procesar el mismo ticket a la vez.
@@ -516,6 +534,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       disponibles: Math.max(0, datos.capacidad - vendidosEnStock),
       registrar,
       marcarPagado,
+      quitarPago,
       escanear,
       entregar,
       devolverACocina,
@@ -525,7 +544,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       agregarCupos,
       importar,
     };
-  }, [datos, listo, registrar, marcarPagado, escanear, entregar, devolverACocina, eliminar, editarDatos, agregarACompra, agregarCupos, importar]);
+  }, [datos, listo, registrar, marcarPagado, quitarPago, escanear, entregar, devolverACocina, eliminar, editarDatos, agregarACompra, agregarCupos, importar]);
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
 }
