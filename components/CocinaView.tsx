@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChefHat, CircleCheck, Hourglass, Undo2, UtensilsCrossed } from 'lucide-react';
+import { ChefHat, CircleCheck, Hourglass, RotateCcw, Undo2, UtensilsCrossed } from 'lucide-react';
 import { useTickets } from '@/lib/store';
 import { fmtNum, horaCorta } from '@/lib/evento';
 import { desbloquearAudio, sonidoNuevoPedido, sonidoValido } from '@/lib/sonido';
@@ -27,7 +27,7 @@ function hace(iso: string | null, ahora: number) {
 }
 
 export default function CocinaView() {
-  const { tickets, entregar, devolverACocina } = useTickets();
+  const { tickets, entregar, devolverACocina, quitarEscaneo } = useTickets();
   const [tab, setTab] = useState<'cola' | 'recibidos'>('cola');
   const [armado, setArmado] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -107,6 +107,20 @@ export default function CocinaView() {
     }
     setOcupado(null);
     sonidoValido();
+  }
+
+  /** Se escaneó por error: los tickets vuelven a "Sin escanear" y salen de cocina */
+  async function sacarDeCocina(ts: Ticket[]) {
+    const nums = ts.map((t) => fmtNum(t.numeroTicket)).join(', ');
+    if (!confirm(`¿${ts[0].comprador} aún no escanea? El N° ${nums} volverá a "Sin escanear" y saldrá de cocina.`)) return;
+    setError(null);
+    for (const t of ts) {
+      const r = await quitarEscaneo(t.id);
+      if (!r.ok) {
+        setError(r.error);
+        break;
+      }
+    }
   }
 
   async function deshacer(t: Ticket) {
@@ -222,6 +236,14 @@ export default function CocinaView() {
                         ? `Toca otra vez: ${p.comprador.split(' ')[0]} recibió ${n === 1 ? 'su pollada' : `sus ${n}`}`
                         : `Entregar ${n === 1 ? '' : `${n} `}· marcar recibido`}
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => sacarDeCocina(p.tickets)}
+                    disabled={ocupado === p.clave}
+                    className="flex min-h-10 w-full items-center justify-center gap-1.5 bg-noche-900/60 text-xs font-semibold text-white/55 active:bg-white/5"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Aún no escanea · quitar de cocina
+                  </button>
                 </li>
               );
             })}
@@ -244,10 +266,18 @@ export default function CocinaView() {
                 <button
                   type="button"
                   onClick={() => deshacer(t)}
-                  aria-label={`Deshacer entrega del N° ${fmtNum(t.numeroTicket)}`}
-                  className="grid h-10 w-10 place-items-center rounded-lg bg-white/[.06] text-white/60"
+                  aria-label={`Devolver el N° ${fmtNum(t.numeroTicket)} a la cola de cocina`}
+                  className="flex h-9 items-center gap-1 rounded-lg bg-white/[.06] px-2 text-xs font-semibold text-white/70"
                 >
-                  <Undo2 className="h-4 w-4" aria-hidden />
+                  <Undo2 className="h-3.5 w-3.5" aria-hidden /> Cocina
+                </button>
+                <button
+                  type="button"
+                  onClick={() => sacarDeCocina([t])}
+                  aria-label={`Volver el N° ${fmtNum(t.numeroTicket)} a sin escanear`}
+                  className="flex h-9 items-center gap-1 rounded-lg bg-amber-500/10 px-2 text-xs font-semibold text-amber-300"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" aria-hidden /> Sin escanear
                 </button>
               </li>
             ))}

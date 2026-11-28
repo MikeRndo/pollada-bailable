@@ -10,6 +10,7 @@ import {
   PackageCheck,
   Pencil,
   Plus,
+  RotateCcw,
   Save,
   Search,
   Smartphone,
@@ -64,7 +65,7 @@ function agrupar(lista: Ticket[]): Grupo[] {
 }
 
 export default function TablaView() {
-  const { tickets, marcarPagado, quitarPago, escanear, entregar, eliminar, editarDatos } = useTickets();
+  const { tickets, marcarPagado, quitarPago, escanear, entregar, quitarEscaneo, eliminar, editarDatos } = useTickets();
   // Edición de datos del comprador
   const [editando, setEditando] = useState(false);
   const [form, setForm] = useState({ comprador: '', telefono: '', vendedor: '' });
@@ -554,6 +555,20 @@ export default function TablaView() {
                     className="grid h-10 w-10 place-items-center rounded-lg bg-orange-500/15 text-orange-300"
                   >
                     <ChefHat className="h-5 w-5" aria-hidden />
+                  </button>
+                )}
+                {t.estadoEntrega !== 'Pendiente' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`¿Volver el N° ${fmtNum(t.numeroTicket)} a "Sin escanear"? Saldrá de cocina.`))
+                        void accion(quitarEscaneo(t.id));
+                    }}
+                    aria-label={`Volver el N° ${fmtNum(t.numeroTicket)} a sin escanear (se escaneó por error)`}
+                    title="Volver a sin escanear"
+                    className="grid h-10 w-10 place-items-center rounded-lg bg-white/[.07] text-white/70"
+                  >
+                    <RotateCcw className="h-5 w-5" aria-hidden />
                   </button>
                 )}
                 {t.estadoEntrega === 'PorRecoger' && (

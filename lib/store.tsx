@@ -73,6 +73,8 @@ interface TicketsCtx extends Datos {
   entregar: (id: string) => Promise<Resultado<Ticket>>;
   /** Deshacer una entrega marcada por error (vuelve a la cola de Cocina) */
   devolverACocina: (id: string) => Promise<Resultado<Ticket>>;
+  /** Corrige un escaneo por error: el ticket vuelve a 'Sin escanear' (sale de cocina) */
+  quitarEscaneo: (id: string) => Promise<Resultado<Ticket>>;
   eliminar: (id: string) => Promise<Resultado<null>>;
   /** Corrige comprador / celular / vendedor de uno o varios tickets (el QR no cambia) */
   /** Agrega más tickets a una compra ya registrada (mismo comprador, celular y vendedor) */
@@ -411,6 +413,21 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     [transicion],
   );
 
+  const quitarEscaneo = useCallback(
+    async (id: string): Promise<Resultado<Ticket>> => {
+      const t = ref.current.tickets.find((x) => x.id === id);
+      if (!t) return fallo('NO_EXISTE', 'El ticket no existe.');
+      if (t.estadoEntrega === 'Pendiente') return { ok: true, data: t };
+      return transicion(
+        t,
+        ['PorRecoger', 'Entregado'],
+        { estadoEntrega: 'Pendiente', fechaEscaneo: null, fechaEntrega: null },
+        'INVALIDO',
+      );
+    },
+    [transicion],
+  );
+
   const devolverACocina = useCallback(
     async (id: string): Promise<Resultado<Ticket>> => {
       const t = ref.current.tickets.find((x) => x.id === id);
@@ -538,13 +555,14 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       escanear,
       entregar,
       devolverACocina,
+      quitarEscaneo,
       eliminar,
       editarDatos,
       agregarACompra,
       agregarCupos,
       importar,
     };
-  }, [datos, listo, registrar, marcarPagado, quitarPago, escanear, entregar, devolverACocina, eliminar, editarDatos, agregarACompra, agregarCupos, importar]);
+  }, [datos, listo, registrar, marcarPagado, quitarPago, escanear, entregar, devolverACocina, quitarEscaneo, eliminar, editarDatos, agregarACompra, agregarCupos, importar]);
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
 }
